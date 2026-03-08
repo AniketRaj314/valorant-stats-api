@@ -106,7 +106,9 @@ router.post('/stats/:username', async (req, res) => {
     const results = await Promise.all(
       Object.entries(groups).map(([rp, groupMods]) => scrapeStats(username, rp, groupMods))
     );
-    return Object.assign({}, ...results);
+    const valid = results.filter(Boolean);
+    if (valid.length === 0) return null;
+    return Object.assign({}, ...valid);
   }
 
   // 2. All fresh — return immediately
