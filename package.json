@@ -1,6 +1,6 @@
 {
   "name": "valorant-stats-api",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Valorant stats API using Apify Playwright scraper",
   "main": "src/index.js",
   "scripts": {
