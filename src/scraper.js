@@ -160,7 +160,6 @@ async function scrapeUrl(username, page, playlist, modules) {
 
   // Matches the config that is confirmed to work on Apify
   const apifyInput = {
-    memoryMbytes: 1024,
     startUrls: [{ url: targetUrl }],
     pageFunction,
     // Playwright / browser settings
@@ -195,7 +194,7 @@ async function scrapeUrl(username, page, playlist, modules) {
     debugLog: false,
   };
 
-  const url = `${APIFY_ACTOR_URL}?token=${token}`;
+  const url = `${APIFY_ACTOR_URL}?token=${token}&memory=1024`;
 
   let response;
   try {
