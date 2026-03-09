@@ -47,14 +47,14 @@ Node.js/Express API that scrapes Valorant player stats from tracker.gg via the [
 
 ### `GET /health`
 
-Returns server status and uptime.
+Returns server status, package version, and uptime.
 
 ```bash
 curl http://localhost:3000/health
 ```
 
 ```json
-{ "status": "ok", "uptime": 42 }
+{ "status": "ok", "version": "1.0.0", "uptime": 42 }
 ```
 
 ---

@@ -29,10 +29,10 @@ Each module is cached independently keyed by username + playlist + module name. 
 ## Endpoints
 
 ### GET /health
-Returns server health and uptime in seconds.
+Returns server health, package version, and uptime in seconds.
 
 Response:
-{ "status": "ok", "uptime": 3721 }
+{ "status": "ok", "version": "1.0.0", "uptime": 3721 }
 
 ### POST /valorant/stats/:username
 Returns Valorant stats for a given player. Accepts a JSON request body.
@@ -395,7 +395,7 @@ const DOCS_HTML = `<!DOCTYPE html>
         <span class="badge badge-get">GET</span>
         <span class="ep-path">/health</span>
       </div>
-      <p class="ep-desc">Health check. Returns server status and uptime in seconds.</p>
+      <p class="ep-desc">Health check. Returns server status, package version, and uptime in seconds.</p>
       <div class="endpoint-body">
         <div>
           <div class="code-label">Request</div>
@@ -403,7 +403,7 @@ const DOCS_HTML = `<!DOCTYPE html>
         </div>
         <div>
           <div class="code-label">Response</div>
-          <pre>{ <span class="t-key">"status"</span>: <span class="t-str">"ok"</span>, <span class="t-key">"uptime"</span>: <span class="t-num">3721</span> }</pre>
+          <pre>{ <span class="t-key">"status"</span>: <span class="t-str">"ok"</span>, <span class="t-key">"version"</span>: <span class="t-str">"1.0.0"</span>, <span class="t-key">"uptime"</span>: <span class="t-num">3721</span> }</pre>
         </div>
       </div>
     </div>
