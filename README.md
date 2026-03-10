@@ -190,6 +190,44 @@ curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
 }
 ```
 
+**Example response (`modules: { "rank": {} }`):**
+
+```json
+{
+  "username": "Spider31415#6921",
+  "playlist": "competitive",
+  "cachedAt": "2026-03-08T11:00:00.000Z",
+  "data": {
+    "rank": {
+      "current": {
+        "rank": "Gold 2",
+        "icon": "https://media.valorant-api.com/..."
+      },
+      "peak": {
+        "rank": "Platinum 1",
+        "act":  "Episode 8 Act 1",
+        "icon": "https://media.valorant-api.com/..."
+      }
+    }
+  }
+}
+```
+
+**Example response (`modules: { "totalPlaytime": {} }`):**
+
+```json
+{
+  "username": "Spider31415#6921",
+  "playlist": "competitive",
+  "cachedAt": "2026-03-08T11:00:00.000Z",
+  "data": {
+    "totalPlaytime": {
+      "total": "1,243 hours"
+    }
+  }
+}
+```
+
 **Stale cache response** (data returned immediately, background refresh triggered):
 
 ```json

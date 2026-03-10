@@ -572,6 +572,42 @@ const DOCS_HTML = `<!DOCTYPE html>
         </div>
 
         <div>
+          <div class="code-label">Response — rank module</div>
+          <pre>{
+  <span class="t-key">"username"</span>: <span class="t-str">"Spider31415#6921"</span>,
+  <span class="t-key">"playlist"</span>: <span class="t-str">"competitive"</span>,
+  <span class="t-key">"cachedAt"</span>: <span class="t-str">"2026-03-08T11:00:00.000Z"</span>,
+  <span class="t-key">"data"</span>: {
+    <span class="t-key">"rank"</span>: {
+      <span class="t-key">"current"</span>: {
+        <span class="t-key">"rank"</span>: <span class="t-str">"Gold 2"</span>,
+        <span class="t-key">"icon"</span>: <span class="t-str">"https://media.valorant-api.com/..."</span>
+      },
+      <span class="t-key">"peak"</span>: {
+        <span class="t-key">"rank"</span>: <span class="t-str">"Platinum 1"</span>,
+        <span class="t-key">"act"</span>:  <span class="t-str">"Episode 8 Act 1"</span>,
+        <span class="t-key">"icon"</span>: <span class="t-str">"https://media.valorant-api.com/..."</span>
+      }
+    }
+  }
+}</pre>
+        </div>
+
+        <div>
+          <div class="code-label">Response — totalPlaytime module</div>
+          <pre>{
+  <span class="t-key">"username"</span>: <span class="t-str">"Spider31415#6921"</span>,
+  <span class="t-key">"playlist"</span>: <span class="t-str">"competitive"</span>,
+  <span class="t-key">"cachedAt"</span>: <span class="t-str">"2026-03-08T11:00:00.000Z"</span>,
+  <span class="t-key">"data"</span>: {
+    <span class="t-key">"totalPlaytime"</span>: {
+      <span class="t-key">"total"</span>: <span class="t-str">"1,243 hours"</span>
+    }
+  }
+}</pre>
+        </div>
+
+        <div>
           <div class="code-label">Stale response (extra field)</div>
           <pre>{
   <span class="t-key">"username"</span>: <span class="t-str">"Spider31415#6921"</span>,
@@ -655,6 +691,8 @@ const DOCS_HTML = `<!DOCTYPE html>
           <span class="mod-tag">topAgents[].winRate</span>
           <span class="mod-tag">topAgents[].role</span>
           <span class="mod-tag">topAgents[].icon</span>
+          <span class="mod-tag">topAgents[].portrait</span>
+          <span class="mod-tag">topAgents[].killfeedPortrait</span>
         </div>
       </div>
 
