@@ -5,6 +5,7 @@ const { log } = require('./logger');
 
 const APIFY_ACTOR_URL =
   'https://api.apify.com/v2/acts/apify~playwright-scraper/run-sync-get-dataset-items';
+const APIFY_TIMEOUT_MS = parseInt(process.env.APIFY_TIMEOUT_MS || '420000', 10);
 
 // Each module defines:
 //   waitFor  - CSS selector passed to page.waitForSelector() (runs in Node/Playwright context)
@@ -202,7 +203,7 @@ async function scrapeUrl(username, page, playlist, modules) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(apifyInput),
-      signal: AbortSignal.timeout(240_000), // 4 minute hard timeout
+      signal: AbortSignal.timeout(APIFY_TIMEOUT_MS),
     });
   } catch (err) {
     throw new Error(`Apify request failed: ${err.message}`);

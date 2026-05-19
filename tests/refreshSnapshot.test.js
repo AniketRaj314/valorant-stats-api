@@ -10,6 +10,7 @@ const { refreshUserSnapshot, refreshTrackedUsers } = require('../src/refreshSnap
 
 describe('refreshUserSnapshot', () => {
   beforeEach(() => {
+    process.env.REFRESH_STAGGER_MS = '0';
     scrapeStats
       .mockResolvedValueOnce({ rank: { current: { rank: 'Gold 2' }, peak: { rank: 'Plat 1' } } })
       .mockResolvedValueOnce({ agents: [{ agent: 'Jett' }] })
@@ -17,6 +18,10 @@ describe('refreshUserSnapshot', () => {
       .mockResolvedValueOnce({ totalPlaytime: { total: '100 hours' } })
       .mockResolvedValueOnce({ agents: [{ agent: 'Phoenix' }] })
       .mockResolvedValueOnce({ maps: [{ map: 'Lotus' }] });
+  });
+
+  afterEach(() => {
+    delete process.env.REFRESH_STAGGER_MS;
   });
 
   test('builds a full snapshot with 6 scrape calls', async () => {
@@ -37,6 +42,7 @@ describe('refreshUserSnapshot', () => {
 
 describe('refreshTrackedUsers', () => {
   test('marks existing snapshot stale when refresh fails', async () => {
+    process.env.REFRESH_STAGGER_MS = '0';
     scrapeStats.mockRejectedValue(new Error('credits exhausted'));
     readSnapshot.mockReturnValue({
       username: 'Spider31415#6921',
@@ -56,5 +62,9 @@ describe('refreshTrackedUsers', () => {
       status: 'stale',
       lastRefreshError: 'credits exhausted',
     }));
+  });
+
+  afterEach(() => {
+    delete process.env.REFRESH_STAGGER_MS;
   });
 });
