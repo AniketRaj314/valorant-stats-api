@@ -1,45 +1,122 @@
 # Valorant Stats API
 
-Node.js/Express API that scrapes Valorant player stats from tracker.gg via the [Apify Playwright Scraper](https://apify.com/apify/playwright-scraper) actor.
+Node.js/Express API that serves cached Valorant player stats from local snapshots. Snapshots are refreshed on a schedule through the [Apify Playwright Scraper](https://apify.com/apify/playwright-scraper), and live API traffic never triggers scraping.
+
+---
+
+## Current Phase
+
+Phase 1 is intentionally narrow:
+
+- Tracked usernames are hardcoded in `src/config.js`
+- Right now the only tracked user is `Spider31415#6921`
+- Unknown users return `404`
+- If the tracked user has not been refreshed yet, the API returns `404`
+- Snapshot refresh is expected to run externally every **48 hours**
 
 ---
 
 ## Setup
 
-1. **Clone and install dependencies**
+1. Install dependencies
 
    ```bash
-   cd valorant-stats-api
    npm install
    ```
 
-2. **Configure environment**
+2. Configure environment
 
    ```bash
    cp .env.example .env
    ```
 
-   Edit `.env` and fill in your values:
+   Fill in:
 
-   ```
+   ```env
    APIFY_TOKEN=your_apify_api_token
    PORT=3000
-   CACHE_TTL_HOURS=6
+   API_KEYS=key-alice,key-bob
    ```
 
-   Get your Apify token at https://console.apify.com/account/integrations
-
-3. **Run locally**
+3. Run the API
 
    ```bash
    npm start
    ```
 
-   Or with auto-reload during development (Node 18+):
+4. Refresh snapshots
 
    ```bash
-   npm run dev
+   npm run refresh:snapshots
    ```
+
+   In production, run that from cron every 48 hours.
+
+---
+
+## How It Works
+
+The system has two separate paths:
+
+1. **Refresh path**
+   - `npm run refresh:snapshots`
+   - runs Apify scrapes
+   - builds one full snapshot per tracked user
+   - writes snapshots to `cache/snapshots/`
+
+2. **Read path**
+   - `POST /valorant/stats/:username`
+   - validates input
+   - checks that the username is tracked
+   - reads the stored snapshot from disk
+   - returns only cached data
+
+Live API requests do **not** perform stale-while-revalidate, background refresh, or on-demand Apify scraping anymore.
+
+---
+
+## Snapshot Shape
+
+Each tracked user is stored as one snapshot:
+
+```json
+{
+  "username": "Spider31415#6921",
+  "lastRefreshedAt": "2026-05-19T10:00:00.000Z",
+  "status": "ok",
+  "data": {
+    "competitive": {
+      "rank": {},
+      "agents": [],
+      "maps": []
+    },
+    "unrated": {
+      "agents": [],
+      "maps": []
+    },
+    "shared": {
+      "totalPlaytime": {}
+    }
+  }
+}
+```
+
+`rank` is always served from the competitive snapshot. `totalPlaytime` is treated as shared across playlists.
+
+---
+
+## Refresh Runs Per Full Snapshot
+
+Current full snapshot for `Spider31415#6921` uses **6 Apify runs**:
+
+| Page | Playlist | Module |
+|------|----------|--------|
+| `/overview` | `competitive` | `rank` |
+| `/agents` | `competitive` | `agents` |
+| `/maps` | `competitive` | `maps` |
+| `/performance` | `competitive` | `totalPlaytime` (shared) |
+| `/agents` | `unrated` | `agents` |
+| `/maps` | `unrated` | `maps` |
 
 ---
 
@@ -47,91 +124,44 @@ Node.js/Express API that scrapes Valorant player stats from tracker.gg via the [
 
 ### `GET /health`
 
-Returns server status, package version, and uptime.
-
-```bash
-curl http://localhost:3000/health
-```
-
-```json
-{ "status": "ok", "version": "1.0.0", "uptime": 42 }
-```
-
----
+Returns server health, package version, and uptime.
 
 ### `POST /valorant/stats/:username`
 
-**Request body (JSON):**
+Returns snapshot-backed stats for a tracked player.
 
-| Field                     | Default       | Description                                                               |
-|---------------------------|---------------|---------------------------------------------------------------------------|
-| `playlist`                | `competitive` | Top-level default playlist (`competitive` or `unrated`)                   |
-| `modules`                 | _(required)_  | Object whose keys are module names; value is a per-module config object   |
-| `modules.<name>.playlist` | _(inherited)_ | Override the playlist for this module only                                |
-| `modules.<name>.limit`    | _(none)_      | Positive integer — truncates the result array for this module             |
+Request body:
 
-**Playlist resolution order (per module):**
-
-```
-modules.<name>.playlist  →  MODULE_DEFINITIONS[name].playlist  →  body.playlist  →  'competitive'
-```
-
-**Available modules:**
-
-| Module          | Page           | Playlist              | Description                                                              |
-|-----------------|----------------|-----------------------|--------------------------------------------------------------------------|
-| `rank`          | `/overview`    | `competitive` (fixed) | Current and peak rank (icons from valorant-api.com)                      |
-| `agents`        | `/agents`      | dynamic               | All agents with full stats (winRate, KD, ADR, ACS, …); enriched with icons/portraits from valorant-api.com |
-| `maps`          | `/maps`        | dynamic               | All maps with wins, losses, K/D, ADR, ACS, and top agents per map; enriched with splash/icon from valorant-api.com |
-| `totalPlaytime` | `/performance` | dynamic               | Total hours played across all modes                                      |
-
-**Examples:**
-
-```bash
-# All agents (unrated)
-curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
-  -H "Content-Type: application/json" \
-  -d '{"playlist": "unrated", "modules": {"agents": {}}}'
-
-# Top 3 agents only
-curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
-  -H "Content-Type: application/json" \
-  -d '{"modules": {"agents": {"limit": 3}}}'
-
-# Rank (always fetches competitive regardless of top-level playlist)
-curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
-  -H "Content-Type: application/json" \
-  -d '{"modules": {"rank": {}}}'
-
-# Total playtime
-curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
-  -H "Content-Type: application/json" \
-  -d '{"modules": {"totalPlaytime": {}}}'
-
-# Top 5 maps (competitive)
-curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
-  -H "Content-Type: application/json" \
-  -d '{"modules": {"maps": {"limit": 5}}}'
-
-# Mixed playlists — agents in competitive (limit 3) + totalPlaytime using default
-curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "playlist": "competitive",
-    "modules": {
-      "agents":        {"playlist": "competitive", "limit": 3},
-      "totalPlaytime": {}
-    }
-  }'
+```json
+{
+  "playlist": "competitive",
+  "modules": {
+    "agents": { "playlist": "unrated", "limit": 3 },
+    "maps": {},
+    "rank": {},
+    "totalPlaytime": {}
+  }
+}
 ```
 
-**Example response (`modules: { "agents": { "limit": 1 } }`):**
+Rules:
+
+- top-level `playlist` must be `competitive` or `unrated`
+- `modules` is required
+- valid modules are `rank`, `agents`, `maps`, `totalPlaytime`
+- `modules.<name>.playlist` can override the top-level playlist for `agents` and `maps`
+- `rank` always comes from competitive snapshot data
+- `totalPlaytime` always comes from shared snapshot data
+- `limit` only affects array modules in the response
+
+Example response:
 
 ```json
 {
   "username": "Spider31415#6921",
   "playlist": "competitive",
-  "cachedAt": "2026-03-08T11:00:00.000Z",
+  "cachedAt": "2026-05-19T10:00:00.000Z",
+  "status": "ok",
   "data": {
     "agents": [
       {
@@ -150,77 +180,7 @@ curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
         "portrait": "https://...",
         "killfeedPortrait": "https://..."
       }
-    ]
-  }
-}
-```
-
-**Example response (`modules: { "maps": { "limit": 1 } }`):**
-
-```json
-{
-  "username": "Spider31415#6921",
-  "playlist": "competitive",
-  "cachedAt": "2026-03-08T11:00:00.000Z",
-  "data": {
-    "maps": [
-      {
-        "map": "Sunset",
-        "displayIcon": "https://media.valorant-api.com/maps/.../displayicon.png",
-        "splash": "https://media.valorant-api.com/maps/.../splash.png",
-        "winRate": "62.8%",
-        "wins": "86",
-        "losses": "51",
-        "kd": "1.43",
-        "adr": "145.2",
-        "acs": "228.1",
-        "topAgents": [
-          {
-            "agent": "Omen",
-            "winRate": "65%",
-            "role": "Controller",
-            "icon": "https://...",
-            "portrait": "https://...",
-            "killfeedPortrait": "https://..."
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-**Example response (`modules: { "rank": {} }`):**
-
-```json
-{
-  "username": "Spider31415#6921",
-  "playlist": "competitive",
-  "cachedAt": "2026-03-08T11:00:00.000Z",
-  "data": {
-    "rank": {
-      "current": {
-        "rank": "Gold 2",
-        "icon": "https://media.valorant-api.com/..."
-      },
-      "peak": {
-        "rank": "Platinum 1",
-        "act":  "Episode 8 Act 1",
-        "icon": "https://media.valorant-api.com/..."
-      }
-    }
-  }
-}
-```
-
-**Example response (`modules: { "totalPlaytime": {} }`):**
-
-```json
-{
-  "username": "Spider31415#6921",
-  "playlist": "competitive",
-  "cachedAt": "2026-03-08T11:00:00.000Z",
-  "data": {
+    ],
     "totalPlaytime": {
       "total": "1,243 hours"
     }
@@ -228,60 +188,30 @@ curl -X POST http://localhost:3000/valorant/stats/Spider31415%236921 \
 }
 ```
 
-**Stale cache response** (data returned immediately, background refresh triggered):
+Error responses:
 
-```json
-{
-  "username": "Spider31415#6921",
-  "playlist": "competitive",
-  "cachedAt": "2026-03-08T05:00:00.000Z",
-  "stale": true,
-  "data": { ... }
-}
+| Status | Reason |
+|--------|--------|
+| `400` | Invalid playlist, module, or limit |
+| `401` | Invalid or missing API key |
+| `404` | User not tracked, snapshot missing, or cached module unavailable |
+
+---
+
+## Scripts
+
+```bash
+npm start
+npm run dev
+npm run refresh:snapshots
+npm test
 ```
 
-**Error responses:**
-
-| Status | Reason                                 |
-|--------|----------------------------------------|
-| 400    | Invalid playlist, module name, or limit |
-| 404    | Profile not found / no data available  |
-| 502    | Apify call failed or timed out         |
-
 ---
 
-## Caching
+## Notes
 
-- Cache files are stored in `cache/` as JSON (excluded from git).
-- Default TTL: **6 hours** (configurable via `CACHE_TTL_HOURS`).
-- On a **fresh cache hit**: data is returned immediately from disk.
-- On a **stale cache hit**: stale data is returned immediately (with `"stale": true`), and a background refresh is triggered.
-- On a **cache miss**: fresh data is fetched and cached before responding.
-- Per-module `limit` is applied at response time — the cache always stores the full list.
-
----
-
-## Adding New Scraper Modules
-
-1. Open `src/scraper.js` and add a new entry to `MODULE_DEFINITIONS`:
-
-   ```js
-   myNewModule: {
-     page: 'overview',         // tracker.gg path segment: 'overview' | 'agents' | 'performance'
-     // playlist: 'competitive' — omit for dynamic (uses caller's ?playlist= param)
-     waitFor: '.some-css-selector',
-     extract: `
-       const el = document.querySelector('.some-css-selector');
-       return { value: el?.innerText?.trim() };
-     `,
-   },
-   ```
-
-2. The module is automatically available as a valid module key in the request body — no other changes needed.
-
-**Tips:**
-- `page` controls which tracker.gg URL path is fetched (`/overview`, `/agents`, `/maps`, `/performance`).
-- Modules with the same resolved `page` + `playlist` are batched into a single Apify call automatically.
-- `waitFor` should be a selector that only appears once the data you want has loaded.
-- Test your selectors in browser DevTools on the relevant tracker.gg profile page first.
-- See `docs/modules.md` for the full module reference table.
+- tracker.gg has no official Valorant API
+- scraping happens only in the refresh job
+- enrichment data still loads at startup from `valorant-api.com`
+- `docs/raw-modules.md` remains as a scraper research/reference artifact
