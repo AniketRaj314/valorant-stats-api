@@ -8,8 +8,9 @@ const APIFY_ACTOR_URL =
 const APIFY_TIMEOUT_MS = parseInt(process.env.APIFY_TIMEOUT_MS || '420000', 10);
 
 // Each module defines:
-//   waitFor  - CSS selector passed to page.waitForSelector() (runs in Node/Playwright context)
-//   extract  - JS snippet passed to page.evaluate() — runs IN the browser, document is available
+//   waitFor    - CSS selector passed to page.waitForSelector() (runs in Node/Playwright context)
+//   readyCheck - optional JS predicate passed to page.waitForFunction() for content readiness
+//   extract    - JS snippet passed to page.evaluate() — runs IN the browser, document is available
 const MODULE_DEFINITIONS = {
   rank: {
     page: 'overview',
@@ -44,14 +45,25 @@ const MODULE_DEFINITIONS = {
   agents: {
     page: 'agents',
     // no playlist → dynamic (caller-supplied)
-    waitFor: '.st-content__item',
+    waitFor: '.st-content__item .st__item--sticky.st__item--wide.agent-row .info .value',
+    readyCheck: `
+      () => {
+        const rows = document.querySelectorAll('.st-content__item');
+        if (!rows.length) return false;
+        const firstName = rows[0]
+          ?.querySelector('.st__item--sticky.st__item--wide.agent-row .info .value')
+          ?.textContent
+          ?.trim();
+        return Boolean(firstName);
+      }
+    `,
     extract: `
       const rows = document.querySelectorAll('.st-content__item');
       const results = [];
       rows.forEach(row => {
-        const nameEl   = row.querySelector('.st__item--sticky.st__item--wide .info .value');
+        const nameEl   = row.querySelector('.st__item--sticky.st__item--wide.agent-row .info .value');
         if (!nameEl) return;
-        const roleEl   = row.querySelector('.st__item--sticky.st__item--wide .info .label');
+        const roleEl   = row.querySelector('.st__item--sticky.st__item--wide.agent-row .info .label');
         const statEls  = row.querySelectorAll(
           '.st-content__item-value:not(.st__item--sticky):not(.st__item--expand) .info .value'
         );
@@ -126,10 +138,15 @@ const MODULE_DEFINITIONS = {
 function buildPageFunction(requestedModules) {
   const blocks = requestedModules
     .map((mod) => {
-      const { waitFor, extract } = MODULE_DEFINITIONS[mod];
+      const { waitFor, readyCheck, extract } = MODULE_DEFINITIONS[mod];
       return `
   log.info('Waiting for ${mod}...');
   await page.waitForSelector(${JSON.stringify(waitFor)}, { timeout: 30000 });
+  ${
+    readyCheck
+      ? `await page.waitForFunction(${readyCheck}, { timeout: 45000 });`
+      : ''
+  }
   result[${JSON.stringify(mod)}] = await page.evaluate(() => {
     ${extract}
   });
