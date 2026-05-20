@@ -95,6 +95,7 @@ router.post('/stats/:username', async (req, res) => {
     username,
     playlist: topPlaylist,
     cachedAt: snapshot.lastRefreshedAt,
+    lastRefreshedAt: snapshot.lastRefreshedAt,
     status: snapshot.status,
     data: applyModuleLimits(data, modulesBody),
   });
