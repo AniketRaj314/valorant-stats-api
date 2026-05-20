@@ -8,8 +8,9 @@ const APIFY_ACTOR_URL =
 const APIFY_TIMEOUT_MS = parseInt(process.env.APIFY_TIMEOUT_MS || '420000', 10);
 
 // Each module defines:
-//   waitFor    - CSS selector passed to page.waitForSelector() (runs in Node/Playwright context)
-//   readyCheck - optional JS predicate passed to page.waitForFunction() for content readiness
+//   waitFor      - CSS selector passed to page.waitForSelector() (runs in Node/Playwright context)
+//   waitForState - optional state passed to page.waitForSelector(); defaults to "visible"
+//   readyCheck   - optional JS predicate passed to page.waitForFunction() for content readiness
 //   extract    - JS snippet passed to page.evaluate() — runs IN the browser, document is available
 const MODULE_DEFINITIONS = {
   rank: {
@@ -45,16 +46,14 @@ const MODULE_DEFINITIONS = {
   agents: {
     page: 'agents',
     // no playlist → dynamic (caller-supplied)
-    waitFor: '.st-content__item .st__item--sticky.st__item--wide.agent-row .info .value',
+    waitFor: '.st-content__item',
+    waitForState: 'attached',
     readyCheck: `
       () => {
-        const rows = document.querySelectorAll('.st-content__item');
-        if (!rows.length) return false;
-        const firstName = rows[0]
-          ?.querySelector('.st__item--sticky.st__item--wide.agent-row .info .value')
-          ?.textContent
-          ?.trim();
-        return Boolean(firstName);
+        const names = document.querySelectorAll(
+          '.st-content__item .st__item--sticky.st__item--wide.agent-row .info .value'
+        );
+        return Array.from(names).some((node) => node.textContent?.trim());
       }
     `,
     extract: `
@@ -138,10 +137,13 @@ const MODULE_DEFINITIONS = {
 function buildPageFunction(requestedModules) {
   const blocks = requestedModules
     .map((mod) => {
-      const { waitFor, readyCheck, extract } = MODULE_DEFINITIONS[mod];
+      const { waitFor, waitForState, readyCheck, extract } = MODULE_DEFINITIONS[mod];
       return `
   log.info('Waiting for ${mod}...');
-  await page.waitForSelector(${JSON.stringify(waitFor)}, { timeout: 30000 });
+  await page.waitForSelector(${JSON.stringify(waitFor)}, {
+    state: ${JSON.stringify(waitForState ?? 'visible')},
+    timeout: 30000
+  });
   ${
     readyCheck
       ? `await page.waitForFunction(${readyCheck}, { timeout: 45000 });`
@@ -180,6 +182,7 @@ async function scrapeUrl(username, page, playlist, modules) {
   const apifyInput = {
     startUrls: [{ url: targetUrl }],
     pageFunction,
+    requestHandlerTimeoutSecs: 120,
     // Playwright / browser settings
     headless: true,
     launcher: 'chromium',
