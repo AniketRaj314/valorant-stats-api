@@ -41,6 +41,8 @@ If ENABLE_AUTO_REFRESH is true, the API process can refresh snapshots in-process
 If ENABLE_AUTO_REFRESH is false, refreshes can be driven externally with:
   npm run refresh:snapshots
 
+When using TRACKED_USERNAMES in a .env file, quote the value because Riot IDs contain #.
+
 ## Snapshot model
 The refresh job currently builds one snapshot per tracked user with:
 - competitive: rank, agents, maps

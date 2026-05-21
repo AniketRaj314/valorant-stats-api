@@ -1,4 +1,5 @@
 const AGENT_DATA = {};
+const { log } = require('./logger');
 
 async function initAgentData() {
   try {
@@ -13,9 +14,9 @@ async function initAgentData() {
         killfeedPortrait: agent.killfeedPortrait,
       };
     }
-    console.log(`Loaded data for ${data.length} agents`);
+    log('STATIC', `Loaded data for ${data.length} agents`);
   } catch (err) {
-    console.warn(`Warning: failed to load agent data — ${err.message}`);
+    log('WARN', `Failed to load agent data — ${err.message}`);
   }
 }
 

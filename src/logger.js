@@ -10,8 +10,43 @@ function ts() {
   return `[${dd}/${mm}/${yy} ${HH}:${MM}:${SS}]`;
 }
 
-function log(label, message) {
-  console.log(`${ts()} [${label}] ${message}`);
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0 || days > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(' ');
 }
 
-module.exports = { log };
+const LABEL_EMOJIS = {
+  APIFY: '🕷️',
+  AUTOREFRESH: '⏰',
+  CONFIG: '⚙️',
+  DECISION: '🤔',
+  ENRICH: '✨',
+  ERROR: '❌',
+  INIT: '🚀',
+  NOT_FOUND: '🚫',
+  REFRESH: '🔄',
+  REQUEST: '📥',
+  RESPONSE: '📤',
+  SCRAPE: '🔍',
+  SNAPSHOT: '💾',
+  SCHEDULE: '📅',
+  STATIC: '🧱',
+  WARN: '⚠️',
+};
+
+function log(label, message) {
+  const emoji = LABEL_EMOJIS[label] || '🔹';
+  console.log(`${ts()} ${emoji} [${label}] ${message}`);
+}
+
+module.exports = { formatDuration, log };

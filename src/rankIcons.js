@@ -1,4 +1,5 @@
 const RANK_ICONS = {};
+const { log } = require('./logger');
 
 async function initRankIcons() {
   try {
@@ -11,9 +12,9 @@ async function initRankIcons() {
         RANK_ICONS[tier.tierName.toLowerCase()] = tier.largeIcon;
       }
     }
-    console.log(`Loaded icons for ${Object.keys(RANK_ICONS).length} ranks`);
+    log('STATIC', `Loaded icons for ${Object.keys(RANK_ICONS).length} ranks`);
   } catch (err) {
-    console.warn(`Warning: failed to load rank icons — ${err.message}`);
+    log('WARN', `Failed to load rank icons — ${err.message}`);
   }
 }
 

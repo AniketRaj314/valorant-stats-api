@@ -36,10 +36,12 @@ Phase 1 is intentionally narrow:
    APIFY_TOKEN=your_apify_api_token
    PORT=3000
    API_KEYS=key-alice,key-bob
-   TRACKED_USERNAMES=Spider31415#6921
+   TRACKED_USERNAMES="Spider31415#6921"
    ENABLE_AUTO_REFRESH=true
    REFRESH_INTERVAL_HOURS=48
    ```
+
+   Note: Riot IDs include `#`, so `TRACKED_USERNAMES` must be quoted in `.env` files.
 
 3. Run the API
 
@@ -249,3 +251,4 @@ npm test
 - enrichment data still loads at startup from `valorant-api.com`
 - `docs/raw-modules.md` remains as a scraper research/reference artifact
 - `TRACKED_USERNAMES` accepts one or more Riot IDs, comma-separated
+- because Riot IDs contain `#`, quote `TRACKED_USERNAMES` in `.env` files

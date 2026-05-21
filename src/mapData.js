@@ -1,4 +1,5 @@
 const MAP_DATA = {};
+const { log } = require('./logger');
 
 async function initMapData() {
   try {
@@ -12,9 +13,9 @@ async function initMapData() {
         splash: map.splash,
       };
     }
-    console.log(`Loaded data for ${Object.keys(MAP_DATA).length} maps`);
+    log('STATIC', `Loaded data for ${Object.keys(MAP_DATA).length} maps`);
   } catch (err) {
-    console.warn(`Warning: failed to load map data — ${err.message}`);
+    log('WARN', `Failed to load map data — ${err.message}`);
   }
 }
 

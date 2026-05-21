@@ -3,11 +3,12 @@
 describe('logger', () => {
   let consoleSpy;
   let log;
+  let formatDuration;
 
   beforeEach(() => {
     jest.resetModules();
     consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    log = require('../src/logger').log;
+    ({ log, formatDuration } = require('../src/logger'));
   });
 
   afterEach(() => {
@@ -23,6 +24,12 @@ describe('logger', () => {
     log('MYLABEL', 'some message');
     const output = consoleSpy.mock.calls[0][0];
     expect(output).toContain('[MYLABEL]');
+  });
+
+  test('known labels include emoji prefixes', () => {
+    log('INIT', 'booting');
+    const output = consoleSpy.mock.calls[0][0];
+    expect(output).toContain('🚀 [INIT]');
   });
 
   test('output contains the message', () => {
@@ -73,5 +80,11 @@ describe('logger', () => {
     const output = consoleSpy.mock.calls[0][0];
     // Day=05, Month=01, Hour=09, Minute=03, Second=07
     expect(output).toContain('05/01/24 09:03:07');
+  });
+
+  test('formatDuration omits 0 days and formats dhms', () => {
+    expect(formatDuration(3661000)).toBe('1h 1m 1s');
+    expect(formatDuration(90061000)).toBe('1d 1h 1m 1s');
+    expect(formatDuration(45000)).toBe('45s');
   });
 });
