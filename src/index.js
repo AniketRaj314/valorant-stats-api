@@ -1,47 +1,20 @@
 require('dotenv').config();
-const express = require('express');
-const { version } = require('../package.json');
-
-const valorantRouter = require('./routes/valorant');
-const docsRouter = require('./routes/docs');
 const { ENABLE_AUTO_REFRESH, REFRESH_INTERVAL_HOURS, TRACKED_USERNAMES } = require('./config');
+const { createApp } = require('./app');
 const { initAgentData } = require('./agentData');
 const { initRankIcons } = require('./rankIcons');
 const { initMapData } = require('./mapData');
 const { startAutoRefreshScheduler } = require('./autoRefresh');
 const { log } = require('./logger');
 
-const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
-const START_TIME = Date.now();
-
-app.use(express.json());
-
-app.get('/valorant/health', (req, res) => {
-  res.json({ status: 'ok', version, uptime: Math.floor((Date.now() - START_TIME) / 1000) });
-});
 
 // Auth middleware — only guards stats routes
 const VALID_KEYS = new Set(
   (process.env.API_KEYS || '').split(',').map((k) => k.trim()).filter(Boolean)
 );
-
-app.use('/valorant/stats', (req, res, next) => {
-  const key = req.headers['x-api-key'];
-  if (!key || !VALID_KEYS.has(key)) {
-    return res.status(401).json({ error: 'Invalid or missing API key' });
-  }
-  next();
-});
-
-app.use('/valorant', valorantRouter);
-app.use('/valorant', docsRouter);
-
-// 404 fallback
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
-});
+const app = createApp({ startTime: Date.now(), validKeys: [...VALID_KEYS] });
 
 (async () => {
   log(

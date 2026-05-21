@@ -6,6 +6,7 @@ jest.mock('../src/logger');
 
 const { readSnapshot } = require('../src/snapshotStore');
 const { refreshTrackedUsers } = require('../src/refreshSnapshot');
+const { REFRESH_INTERVAL_MS } = require('../src/config');
 const {
   computeSnapshotDueAt,
   computeNextAutoRefreshDelay,
@@ -24,7 +25,7 @@ describe('computeSnapshotDueAt', () => {
   test('returns refresh due timestamp when snapshot is valid', () => {
     const refreshedAt = '2026-05-19T10:00:00.000Z';
     const dueAt = computeSnapshotDueAt({ lastRefreshedAt: refreshedAt });
-    expect(dueAt).toBe(Date.parse(refreshedAt) + 48 * 60 * 60 * 1000);
+    expect(dueAt).toBe(Date.parse(refreshedAt) + REFRESH_INTERVAL_MS);
   });
 });
 
