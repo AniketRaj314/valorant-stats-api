@@ -4,9 +4,11 @@ const { version } = require('../package.json');
 
 const valorantRouter = require('./routes/valorant');
 const docsRouter = require('./routes/docs');
+const { ENABLE_AUTO_REFRESH } = require('./config');
 const { initAgentData } = require('./agentData');
 const { initRankIcons } = require('./rankIcons');
 const { initMapData } = require('./mapData');
+const { startAutoRefreshScheduler } = require('./autoRefresh');
 const { log } = require('./logger');
 
 const app = express();
@@ -45,6 +47,11 @@ app.use((req, res) => {
   log('INIT', 'Loading static data (agents, rank icons, maps)...');
   await Promise.all([initAgentData(), initRankIcons(), initMapData()]);
   log('INIT', 'Static data loaded');
+  if (ENABLE_AUTO_REFRESH) {
+    startAutoRefreshScheduler();
+  } else {
+    log('AUTOREFRESH', 'Automatic refresh scheduler disabled');
+  }
   app.listen(PORT, () => {
     log('INIT', `Server listening on port ${PORT}`);
   });

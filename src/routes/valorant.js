@@ -1,7 +1,7 @@
 const express = require('express');
 const { MODULE_DEFINITIONS } = require('../scraper');
 const { readSnapshot } = require('../snapshotStore');
-const { isTrackedUsername } = require('../config');
+const { REFRESH_INTERVAL_MS, isTrackedUsername } = require('../config');
 const { log } = require('../logger');
 
 const router = express.Router();
@@ -29,6 +29,12 @@ function readModuleFromSnapshot(snapshot, mod, playlist) {
   if (mod === 'rank') return snapshot.data.competitive.rank;
   if (mod === 'totalPlaytime') return snapshot.data.shared.totalPlaytime;
   return snapshot.data[playlist]?.[mod];
+}
+
+function computeNextRefreshAt(cachedAt) {
+  const cachedMs = Date.parse(cachedAt);
+  if (Number.isNaN(cachedMs)) return null;
+  return new Date(cachedMs + REFRESH_INTERVAL_MS).toISOString();
 }
 
 router.post('/stats/:username', async (req, res) => {
@@ -95,6 +101,7 @@ router.post('/stats/:username', async (req, res) => {
     username,
     playlist: topPlaylist,
     cachedAt: snapshot.lastRefreshedAt,
+    nextRefreshAt: computeNextRefreshAt(snapshot.lastRefreshedAt),
     status: snapshot.status,
     data: applyModuleLimits(data, modulesBody),
   });

@@ -1,11 +1,13 @@
 'use strict';
 
 const express = require('express');
-const { TRACKED_USERNAMES } = require('../config');
+const { ENABLE_AUTO_REFRESH, REFRESH_INTERVAL_HOURS, TRACKED_USERNAMES } = require('../config');
 
 const router = express.Router();
 
-const trackedList = TRACKED_USERNAMES.map((username) => `- ${username}`).join('\n');
+const trackedList = TRACKED_USERNAMES.length
+  ? TRACKED_USERNAMES.map((username) => `- ${username}`).join('\n')
+  : '- none configured';
 
 const LLMS_TXT = `# Valorant Stats API
 
@@ -31,6 +33,13 @@ Unknown usernames return: 404 { "error": "User not tracked" }
 
 If a tracked user has not been refreshed yet, the API returns:
 404 { "error": "Tracked user has no cached snapshot yet" }
+
+## Refresh strategy
+The default refresh interval is ${REFRESH_INTERVAL_HOURS} hours.
+
+If ENABLE_AUTO_REFRESH is true, the API process can refresh snapshots in-process on that cadence.
+If ENABLE_AUTO_REFRESH is false, refreshes can be driven externally with:
+  npm run refresh:snapshots
 
 ## Snapshot model
 The refresh job currently builds one snapshot per tracked user with:
@@ -86,6 +95,7 @@ Response shape:
   "username": "Spider31415#6921",
   "playlist": "competitive",
   "cachedAt": "2026-05-19T10:00:00.000Z",
+  "nextRefreshAt": "2026-05-21T10:00:00.000Z",
   "status": "ok",
   "data": {
     "agents": [ ... ],
@@ -112,15 +122,17 @@ This command refreshes all tracked users and writes updated snapshots to disk.
 - live API traffic never triggers Apify runs
 - totalPlaytime is treated as shared across playlists
 - rank is always served from the competitive snapshot
+- nextRefreshAt is calculated from cachedAt + ${REFRESH_INTERVAL_HOURS} hours
+- current ENABLE_AUTO_REFRESH setting: ${ENABLE_AUTO_REFRESH ? 'enabled' : 'disabled'}
 `.trimEnd();
 
 router.get('/llms.txt', (req, res) => {
   res.type('text/plain').send(LLMS_TXT);
 });
 
-const TRACKED_HTML = TRACKED_USERNAMES
-  .map((username) => `<li><code>${username}</code></li>`)
-  .join('');
+const TRACKED_HTML = TRACKED_USERNAMES.length
+  ? TRACKED_USERNAMES.map((username) => `<li><code>${username}</code></li>`).join('')
+  : '<li><code>none configured</code></li>';
 
 const DOCS_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -232,7 +244,7 @@ const DOCS_HTML = `<!DOCTYPE html>
       <section class="card">
         <h3>Refresh command</h3>
         <pre>npm run refresh:snapshots</pre>
-        <p>Use your external cron to run this every 48 hours.</p>
+        <p>Enable in-process refresh with <code>ENABLE_AUTO_REFRESH=true</code>, or run this command externally on your preferred schedule.</p>
       </section>
     </div>
 

@@ -8,11 +8,11 @@ Node.js/Express API that serves cached Valorant player stats from local snapshot
 
 Phase 1 is intentionally narrow:
 
-- Tracked usernames are hardcoded in `src/config.js`
-- Right now the only tracked user is `Spider31415#6921`
+- Tracked usernames come from `TRACKED_USERNAMES` in your environment
 - Unknown users return `404`
 - If the tracked user has not been refreshed yet, the API returns `404`
-- Snapshot refresh is expected to run externally every **48 hours**
+- Snapshot refresh interval defaults to **48 hours**
+- For the simplest setup, you can enable the built-in scheduler with `ENABLE_AUTO_REFRESH=true`
 
 ---
 
@@ -36,6 +36,9 @@ Phase 1 is intentionally narrow:
    APIFY_TOKEN=your_apify_api_token
    PORT=3000
    API_KEYS=key-alice,key-bob
+   TRACKED_USERNAMES=Spider31415#6921
+   ENABLE_AUTO_REFRESH=true
+   REFRESH_INTERVAL_HOURS=48
    ```
 
 3. Run the API
@@ -50,7 +53,7 @@ Phase 1 is intentionally narrow:
    npm run refresh:snapshots
    ```
 
-   In production, run that from cron every 48 hours.
+   This manual command is still useful even if automatic refresh is enabled.
 
 ---
 
@@ -72,6 +75,34 @@ The system has two separate paths:
    - returns only cached data
 
 Live API requests do **not** perform stale-while-revalidate, background refresh, or on-demand Apify scraping anymore.
+
+---
+
+## Deployment Modes
+
+### Simple mode: one service
+
+This is the easiest setup for open-source users:
+
+- deploy the API once
+- set `ENABLE_AUTO_REFRESH=true`
+- optionally set `REFRESH_INTERVAL_HOURS=48`
+
+In this mode, the app:
+
+- serves cached snapshots from disk
+- automatically refreshes missing snapshots on startup
+- automatically refreshes again when the configured interval is reached
+
+### Advanced mode: external scheduler
+
+If you want stricter operational separation, keep `ENABLE_AUTO_REFRESH=false` and run:
+
+```bash
+npm run refresh:snapshots
+```
+
+from Railway cron, GitHub Actions, or another scheduler.
 
 ---
 
@@ -107,7 +138,7 @@ Each tracked user is stored as one snapshot:
 
 ## Refresh Runs Per Full Snapshot
 
-Current full snapshot for `Spider31415#6921` uses **6 Apify runs**:
+Current full snapshot for one tracked user uses **6 Apify runs**:
 
 | Page | Playlist | Module |
 |------|----------|--------|
@@ -161,6 +192,7 @@ Example response:
   "username": "Spider31415#6921",
   "playlist": "competitive",
   "cachedAt": "2026-05-19T10:00:00.000Z",
+  "nextRefreshAt": "2026-05-21T10:00:00.000Z",
   "status": "ok",
   "data": {
     "agents": [
@@ -213,5 +245,7 @@ npm test
 
 - tracker.gg has no official Valorant API
 - scraping happens only in the refresh job
+- automatic refresh can also run in-process when `ENABLE_AUTO_REFRESH=true`
 - enrichment data still loads at startup from `valorant-api.com`
 - `docs/raw-modules.md` remains as a scraper research/reference artifact
+- `TRACKED_USERNAMES` accepts one or more Riot IDs, comma-separated

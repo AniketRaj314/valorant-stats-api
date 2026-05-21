@@ -8,6 +8,8 @@ const { scrapeStats } = require('../src/scraper');
 const { readSnapshot, writeSnapshot } = require('../src/snapshotStore');
 const { refreshUserSnapshot, refreshTrackedUsers } = require('../src/refreshSnapshot');
 
+const USERNAME = 'Spider31415#6921';
+
 describe('refreshUserSnapshot', () => {
   beforeEach(() => {
     process.env.REFRESH_STAGGER_MS = '0';
@@ -25,16 +27,16 @@ describe('refreshUserSnapshot', () => {
   });
 
   test('builds a full snapshot with 6 scrape calls', async () => {
-    const snapshot = await refreshUserSnapshot('Spider31415#6921');
+    const snapshot = await refreshUserSnapshot(USERNAME);
 
     expect(scrapeStats).toHaveBeenCalledTimes(6);
-    expect(scrapeStats).toHaveBeenNthCalledWith(1, 'Spider31415#6921', 'competitive', ['rank']);
-    expect(scrapeStats).toHaveBeenNthCalledWith(4, 'Spider31415#6921', 'competitive', ['totalPlaytime']);
-    expect(scrapeStats).toHaveBeenNthCalledWith(5, 'Spider31415#6921', 'unrated', ['agents']);
+    expect(scrapeStats).toHaveBeenNthCalledWith(1, USERNAME, 'competitive', ['rank']);
+    expect(scrapeStats).toHaveBeenNthCalledWith(4, USERNAME, 'competitive', ['totalPlaytime']);
+    expect(scrapeStats).toHaveBeenNthCalledWith(5, USERNAME, 'unrated', ['agents']);
     expect(snapshot.data.shared.totalPlaytime).toEqual({ total: '100 hours' });
     expect(snapshot.data.unrated.maps).toEqual([{ map: 'Lotus' }]);
-    expect(writeSnapshot).toHaveBeenCalledWith('Spider31415#6921', expect.objectContaining({
-      username: 'Spider31415#6921',
+    expect(writeSnapshot).toHaveBeenCalledWith(USERNAME, expect.objectContaining({
+      username: USERNAME,
       status: 'ok',
     }));
   });
@@ -45,20 +47,20 @@ describe('refreshTrackedUsers', () => {
     process.env.REFRESH_STAGGER_MS = '0';
     scrapeStats.mockRejectedValue(new Error('credits exhausted'));
     readSnapshot.mockReturnValue({
-      username: 'Spider31415#6921',
+      username: USERNAME,
       status: 'ok',
       lastRefreshedAt: '2026-05-18T10:00:00.000Z',
       data: { competitive: {}, unrated: {}, shared: {} },
     });
 
-    const results = await refreshTrackedUsers(['Spider31415#6921'], { continueOnError: true });
+    const results = await refreshTrackedUsers([USERNAME], { continueOnError: true });
 
     expect(results[0]).toEqual(expect.objectContaining({
-      username: 'Spider31415#6921',
+      username: USERNAME,
       ok: false,
       error: 'credits exhausted',
     }));
-    expect(writeSnapshot).toHaveBeenCalledWith('Spider31415#6921', expect.objectContaining({
+    expect(writeSnapshot).toHaveBeenCalledWith(USERNAME, expect.objectContaining({
       status: 'stale',
       lastRefreshError: 'credits exhausted',
     }));

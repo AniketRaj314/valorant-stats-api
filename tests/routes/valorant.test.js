@@ -1,17 +1,20 @@
 'use strict';
 
+process.env.TRACKED_USERNAMES = 'Spider31415#6921';
+
 jest.mock('../../src/snapshotStore');
 jest.mock('../../src/logger');
 
 const express = require('express');
 const request = require('supertest');
 const { readSnapshot } = require('../../src/snapshotStore');
+const { REFRESH_INTERVAL_MS, TRACKED_USERNAMES } = require('../../src/config');
 
 const app = express();
 app.use(express.json());
 app.use('/valorant', require('../../src/routes/valorant'));
 
-const USERNAME = 'Spider31415#6921';
+const USERNAME = TRACKED_USERNAMES[0] || 'Spider31415#6921';
 const ENCODED_USERNAME = encodeURIComponent(USERNAME);
 const URL = `/valorant/stats/${ENCODED_USERNAME}`;
 
@@ -89,6 +92,9 @@ describe('snapshot reads', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.agents).toEqual(SNAPSHOT.data.competitive.agents);
     expect(res.body.cachedAt).toBe(SNAPSHOT.lastRefreshedAt);
+    expect(res.body.nextRefreshAt).toBe(
+      new Date(Date.parse(SNAPSHOT.lastRefreshedAt) + REFRESH_INTERVAL_MS).toISOString()
+    );
   });
 
   test('returns unrated agents when requested', async () => {
