@@ -1,22 +1,35 @@
 # Valorant Stats API
 
-Node.js/Express API that serves cached Valorant player stats from local snapshots. Snapshots are refreshed on a schedule through the [Apify Playwright Scraper](https://apify.com/apify/playwright-scraper), and live API traffic never triggers scraping.
+A reusable, self-hostable Valorant stats API for tracked Riot IDs.
 
----
+This project refreshes player data from tracker.gg through Apify, stores snapshot files on disk, and serves those cached snapshots through a small authenticated Express API. It is designed for personal sites, side projects, dashboards, and self-hosted community tools where you want predictable API responses without scraping on every request.
 
-## Current Phase
+For request examples and API usage, open the built-in docs page after the server starts:
 
-Phase 1 is intentionally narrow:
+- local: `http://localhost:3000/docs`
+- deployed: `https://your-domain.example/docs`
 
-- Tracked usernames come from `TRACKED_USERNAMES` in your environment
-- Unknown users return `404`
-- If the tracked user has not been refreshed yet, the API returns `404`
-- Snapshot refresh interval defaults to **48 hours**
-- For the simplest setup, you can enable the built-in scheduler with `ENABLE_AUTO_REFRESH=true`
+## What You Get
 
----
+- Snapshot-backed API for tracked Riot IDs
+- Competitive and unrated agent/map stats
+- Competitive rank data
+- Total playtime across all modes
+- API key protection by default
+- Optional built-in auto-refresh scheduler
+- Simple file-based storage with no database requirement
 
-## Setup
+## Requirements
+
+Before you run this project, you need:
+
+- Node.js 18+
+- an [Apify](https://apify.com/) account and `APIFY_TOKEN`
+- at least one self-generated API key in `API_KEYS`
+- one or more Riot IDs in `TRACKED_USERNAMES`
+- tracker.gg profiles set to public for the players you want to track
+
+## Quick Start
 
 1. Install dependencies
 
@@ -24,216 +37,137 @@ Phase 1 is intentionally narrow:
    npm install
    ```
 
-2. Configure environment
+2. Create your local env file
 
    ```bash
    cp .env.example .env
    ```
 
-   Fill in:
+3. Fill in the required values
 
    ```env
    APIFY_TOKEN=your_apify_api_token
    PORT=3000
-   API_KEYS=key-alice,key-bob
+   API_KEYS=local-dev-key
    TRACKED_USERNAMES="Spider31415#6921"
    ENABLE_AUTO_REFRESH=true
    REFRESH_INTERVAL_HOURS=48
    ```
 
-   Note: Riot IDs include `#`, so `TRACKED_USERNAMES` must be quoted in `.env` files.
-   Note: `API_KEYS` is required; the server refuses to start without at least one key.
+   Notes:
 
-3. Run the API
+   - `API_KEYS` is mandatory. The server refuses to start without at least one key.
+   - `TRACKED_USERNAMES` must be quoted in `.env` files because Riot IDs contain `#`.
+   - Multiple usernames are supported:
+
+     ```env
+     TRACKED_USERNAMES="PlayerOne#1111,PlayerTwo#2222"
+     ```
+
+4. Start the API
 
    ```bash
    npm start
    ```
 
-4. Refresh snapshots
+5. Refresh snapshots
 
    ```bash
    npm run refresh:snapshots
    ```
 
-   This manual command is still useful even if automatic refresh is enabled.
+If `ENABLE_AUTO_REFRESH=true`, the server can also refresh missing or due snapshots automatically in-process.
 
----
+## Environment Variables
 
-## How It Works
+| Variable | Required | Description |
+|---|---|---|
+| `APIFY_TOKEN` | Yes | Apify token used for tracker.gg scraping runs |
+| `API_KEYS` | Yes | Comma-separated API keys accepted by `/valorant/*` routes |
+| `TRACKED_USERNAMES` | Yes | Comma-separated Riot IDs to support in this API |
+| `PORT` | No | Port the server listens on. Defaults to `3000` |
+| `ENABLE_AUTO_REFRESH` | No | Set to `true` to enable the built-in scheduler |
+| `REFRESH_INTERVAL_HOURS` | No | Refresh cadence for auto-refresh and `nextRefreshAt`. Defaults to `48` |
+| `REFRESH_STAGGER_MS` | No | Delay between scrape steps during snapshot refresh. Defaults to `5000` |
+| `APIFY_TIMEOUT_MS` | No | Timeout for an individual Apify call. Defaults to `420000` |
 
-The system has two separate paths:
+## How Refreshing Works
 
-1. **Refresh path**
-   - `npm run refresh:snapshots`
-   - runs Apify scrapes
-   - builds one full snapshot per tracked user
-   - writes snapshots to `cache/snapshots/`
+Each tracked Riot ID gets one snapshot file on disk. A full refresh currently collects:
 
-2. **Read path**
-   - `POST /valorant/stats/:username`
-   - validates input
-   - checks that the username is tracked
-   - reads the stored snapshot from disk
-   - returns only cached data
+- competitive rank (current and peak)
+- competitive agents
+- competitive maps
+- total playtime across modes
+- unrated agents
+- unrated maps
 
-Live API requests do **not** perform stale-while-revalidate, background refresh, or on-demand Apify scraping anymore.
+The API only reads those snapshots. It does not scrape tracker.gg during request handling.
 
----
+## tracker.gg Profile Visibility
 
-## Deployment Modes
+The Riot ID you want to track must be public on tracker.gg, or the scraper will not be able to collect the data your API serves.
 
-### Simple mode: one service
+Based on Tracker Network support guidance, the most reliable way to make your own profile public is:
 
-This is the easiest setup for open-source users:
+1. Open an incognito/private browser window.
+2. Sign in to the correct Riot account, and if needed the correct Tracker Network account.
+3. Open your Valorant profile page on tracker.gg.
+4. Check the box that says `I acknowledge signing in makes my profile public to all users`.
+5. Click `Sign in with Riot`.
+6. Enter your Riot credentials manually rather than relying on browser auto sign-in.
+7. Finish the sign-in flow and return to the profile page.
 
-- deploy the API once
-- set `ENABLE_AUTO_REFRESH=true`
-- optionally set `REFRESH_INTERVAL_HOURS=48`
+Common gotchas:
 
-In this mode, the app:
+- multiple Riot accounts in the same browser session
+- browser auto sign-in picking the wrong account
+- assuming signing into your own account will reveal someone else's private profile
 
-- serves cached snapshots from disk
-- automatically refreshes missing snapshots on startup
-- automatically refreshes again when the configured interval is reached
+Tracker support threads I used to verify the current flow:
 
-### Advanced mode: external scheduler
+- [Cant make my account public - Tracker Network](https://feedback.tracker.gg/t/cant-make-my-account-public/59367/2)
+- [Cannot link Valorant account - Tracker Network](https://feedback.tracker.gg/t/cannot-link-valorant-account/57359)
 
-If you want stricter operational separation, keep `ENABLE_AUTO_REFRESH=false` and run:
+## Deployment
 
-```bash
-npm run refresh:snapshots
-```
+### Local
 
-from Railway cron, GitHub Actions, or another scheduler.
+The local setup above is enough. Keep in mind:
 
----
+- snapshots are written to `cache/snapshots/`
+- if you delete that directory, the API will need to refresh snapshots again
 
-## Snapshot Shape
+### Railway
 
-Each tracked user is stored as one snapshot:
+Recommended setup:
 
-```json
-{
-  "username": "Spider31415#6921",
-  "lastRefreshedAt": "2026-05-19T10:00:00.000Z",
-  "status": "ok",
-  "data": {
-    "competitive": {
-      "rank": {},
-      "agents": [],
-      "maps": []
-    },
-    "unrated": {
-      "agents": [],
-      "maps": []
-    },
-    "shared": {
-      "totalPlaytime": {}
-    }
-  }
-}
-```
+1. Deploy the app as a normal web service.
+2. Set the required environment variables.
+3. Attach persistent storage so `cache/snapshots/` survives restarts.
+4. Make sure Railway public networking points to the same port your app listens on.
+   - for example, if `PORT=3000`, the public domain must target `3000`
+5. Decide whether to use:
+   - built-in refresh with `ENABLE_AUTO_REFRESH=true`, or
+   - an external Railway cron service that runs `npm run refresh:snapshots`
 
-`rank` is always served from the competitive snapshot. `totalPlaytime` is treated as shared across playlists.
+For a simple single-service deployment, the built-in scheduler is the easiest path.
 
----
+### Docker / Generic Self-Hosting
 
-## Refresh Runs Per Full Snapshot
+This project works fine behind any process manager or container runtime, as long as you:
 
-Current full snapshot for one tracked user uses **6 Apify runs**:
+- expose the same `PORT` your app listens on
+- mount persistent storage for `cache/snapshots/`
+- provide `APIFY_TOKEN`, `API_KEYS`, and `TRACKED_USERNAMES`
+- decide whether auto-refresh should run inside the app process
 
-| Page | Playlist | Module |
-|------|----------|--------|
-| `/overview` | `competitive` | `rank` |
-| `/agents` | `competitive` | `agents` |
-| `/maps` | `competitive` | `maps` |
-| `/performance` | `competitive` | `totalPlaytime` (shared) |
-| `/agents` | `unrated` | `agents` |
-| `/maps` | `unrated` | `maps` |
+Self-hosting checklist:
 
----
-
-## API Reference
-
-### `GET /health`
-
-Returns server health, package version, and uptime.
-
-### `POST /valorant/stats/:username`
-
-Returns snapshot-backed stats for a tracked player.
-
-Send your API key in the `X-API-Key` header on every `/valorant` request.
-
-Request body:
-
-```json
-{
-  "playlist": "competitive",
-  "modules": {
-    "agents": { "playlist": "unrated", "limit": 3 },
-    "maps": {},
-    "rank": {},
-    "totalPlaytime": {}
-  }
-}
-```
-
-Rules:
-
-- top-level `playlist` must be `competitive` or `unrated`
-- `modules` is required
-- valid modules are `rank`, `agents`, `maps`, `totalPlaytime`
-- `modules.<name>.playlist` can override the top-level playlist for `agents` and `maps`
-- `rank` always comes from competitive snapshot data
-- `totalPlaytime` always comes from shared snapshot data
-- `limit` only affects array modules in the response
-
-Example response:
-
-```json
-{
-  "username": "Spider31415#6921",
-  "playlist": "competitive",
-  "cachedAt": "2026-05-19T10:00:00.000Z",
-  "nextRefreshAt": "2026-05-21T10:00:00.000Z",
-  "status": "ok",
-  "data": {
-    "agents": [
-      {
-        "agent": "Omen",
-        "role": "Controller",
-        "timePlayed": "58 hours",
-        "matches": "98",
-        "winRate": "53.1%",
-        "kd": "1.05",
-        "adr": "143.3",
-        "acs": "222.3",
-        "ddDelta": "+12.4",
-        "hsPercent": "18%",
-        "kast": "71%",
-        "icon": "https://...",
-        "portrait": "https://...",
-        "killfeedPortrait": "https://..."
-      }
-    ],
-    "totalPlaytime": {
-      "total": "1,243 hours"
-    }
-  }
-}
-```
-
-Error responses:
-
-| Status | Reason |
-|--------|--------|
-| `400` | Invalid playlist, module, or limit |
-| `401` | Invalid or missing API key |
-| `404` | User not tracked, snapshot missing, or cached module unavailable |
-
----
+- persistent writable volume
+- reverse proxy or public port mapping
+- secret management for env vars
+- backup plan for snapshots if you care about long-lived cache history
 
 ## Scripts
 
@@ -242,16 +176,23 @@ npm start
 npm run dev
 npm run refresh:snapshots
 npm test
+npm run test:coverage
 ```
 
----
+## API Docs
 
-## Notes
+After the server is running, see:
 
-- tracker.gg has no official Valorant API
-- scraping happens only in the refresh job
-- automatic refresh can also run in-process when `ENABLE_AUTO_REFRESH=true`
-- enrichment data still loads at startup from `valorant-api.com`
-- `docs/raw-modules.md` remains as a scraper research/reference artifact
-- `TRACKED_USERNAMES` accepts one or more Riot IDs, comma-separated
-- because Riot IDs contain `#`, quote `TRACKED_USERNAMES` in `.env` files
+- `/docs` for human-friendly usage docs
+- `/llms.txt` for a compact machine-readable summary
+
+## Security Defaults
+
+- API keys are required
+- tracked usernames must be explicitly configured
+- snapshots are served from local cache only
+- malformed module payloads are rejected with `400`
+
+## License
+
+MIT

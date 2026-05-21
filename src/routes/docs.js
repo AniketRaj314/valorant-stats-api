@@ -14,321 +14,706 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-const trackedList = TRACKED_USERNAMES.length
-  ? TRACKED_USERNAMES.map((username) => `- ${username}`).join('\n')
-  : '- none configured';
+function buildTrackedListMarkdown() {
+  return TRACKED_USERNAMES.length
+    ? TRACKED_USERNAMES.map((username) => `- ${username}`).join('\n')
+    : '- none configured';
+}
 
-const LLMS_TXT = `# Valorant Stats API
+function buildTrackedListHtml() {
+  return TRACKED_USERNAMES.length
+    ? TRACKED_USERNAMES.map((username) => `<li><code>${escapeHtml(username)}</code></li>`).join('')
+    : '<li><code>none configured</code></li>';
+}
 
-> Snapshot-backed API for retrieving Valorant player statistics scraped from tracker.gg via Apify. Live API requests never trigger scraping. A scheduled refresh job writes snapshots to disk, and the API only serves cached snapshot data.
+function buildLlmsTxt(baseUrl) {
+  const trackedList = buildTrackedListMarkdown();
+  const sampleUsername = TRACKED_USERNAMES[0] || 'PlayerName#TAG';
+  const encodedSampleUsername = encodeURIComponent(sampleUsername);
 
-Base URL: https://api.aniketraj.me
+  return `# Valorant Stats API
+
+> A reusable, self-hostable Valorant stats API for tracked Riot IDs.
+
+Base URL: ${baseUrl}
+
+## What it does
+- refreshes tracked player data from tracker.gg through Apify
+- stores one snapshot per tracked Riot ID on disk
+- serves cached snapshot data through an authenticated API
+- never scrapes tracker.gg during request handling
 
 ## Authentication
-All /valorant routes require an API key passed in the X-API-Key request header.
+All /valorant routes require an API key in the X-API-Key request header.
 
 Example:
   X-API-Key: your-key-here
 
-Missing or invalid key returns: 401 { "error": "Invalid or missing API key" }
+Missing or invalid key returns:
+  401 { "error": "Invalid or missing API key" }
 
-## Tracked users
-Only explicitly tracked usernames are available in this phase.
+## Tracked usernames
+Only configured Riot IDs are available.
 
 Tracked usernames:
 ${trackedList}
 
-Unknown usernames return: 404 { "error": "User not tracked" }
+If a user is not configured:
+  404 { "error": "User not tracked" }
 
-If a tracked user has not been refreshed yet, the API returns:
-404 { "error": "Tracked user has no cached snapshot yet" }
+If a tracked user does not have a snapshot yet:
+  404 { "error": "Tracked user has no cached snapshot yet" }
 
-## Refresh strategy
-The default refresh interval is ${REFRESH_INTERVAL_HOURS} hours.
+## Request model
+Endpoint:
+  POST /valorant/stats/:username
 
-If ENABLE_AUTO_REFRESH is true, the API process can refresh snapshots in-process on that cadence.
-If ENABLE_AUTO_REFRESH is false, refreshes can be driven externally with:
-  npm run refresh:snapshots
+Path parameter:
+  username = URL-encoded Riot ID
+  Example: ${encodedSampleUsername}
 
-When using TRACKED_USERNAMES in a .env file, quote the value because Riot IDs contain #.
-
-## Snapshot model
-The refresh job currently builds one snapshot per tracked user with:
-- competitive: rank, agents, maps
-- unrated: agents, maps
-- shared: totalPlaytime
-
-Current refresh plan for one full snapshot:
-- overview + competitive → rank
-- agents + competitive → agents
-- maps + competitive → maps
-- performance + competitive → totalPlaytime (shared)
-- agents + unrated → agents
-- maps + unrated → maps
-
-## Endpoints
-
-### GET /health
-Returns server health, package version, and uptime in seconds.
-
-### POST /valorant/stats/:username
-Returns snapshot-backed Valorant stats for a tracked player. Accepts a JSON request body.
-
-Path parameters:
-- username (required): URL-encoded Riot ID. The # must be encoded as %23.
-  Example: Spider31415%236921
-
-Request body:
+Body shape:
 {
   "playlist": "competitive",
   "modules": {
-    "<moduleName>": {
-      "playlist": "unrated",
-      "limit": 3
-    }
+    "agents": {},
+    "maps": { "playlist": "unrated", "limit": 3 },
+    "rank": {},
+    "totalPlaytime": {}
   }
 }
 
-Body fields:
-- playlist (optional, string): top-level default playlist. "competitive" or "unrated". Default: "competitive".
-- modules (required, object): keys are module names. Value is a config object with optional fields:
-  - playlist (optional, string): overrides the top-level playlist for this module only.
-  - limit (optional, positive integer): truncates the returned array for this module.
+Rules:
+- playlist must be competitive or unrated
+- modules is required and must be an object
+- valid modules are rank, agents, maps, totalPlaytime
+- rank always comes from the competitive snapshot
+- totalPlaytime always comes from the shared snapshot
+- limit must be a positive integer
 
-Available modules:
-- rank          — current and peak rank; always served from the competitive snapshot
-- agents        — agent stats for competitive or unrated snapshot data
-- maps          — map stats for competitive or unrated snapshot data
-- totalPlaytime — shared lifetime total playtime
-
-Response shape:
+## Response shape
 {
-  "username": "Spider31415#6921",
+  "username": "${sampleUsername}",
   "playlist": "competitive",
   "cachedAt": "2026-05-19T10:00:00.000Z",
   "nextRefreshAt": "2026-05-21T10:00:00.000Z",
   "status": "ok",
   "data": {
-    "agents": [ ... ],
-    "rank": { ... },
-    "maps": [ ... ],
-    "totalPlaytime": { "total": "120 hours" }
+    "agents": [],
+    "maps": [],
+    "rank": {},
+    "totalPlaytime": {}
   }
 }
 
-Error responses:
-- 400: invalid playlist value, unknown module name, or invalid limit
-- 404: user not tracked, snapshot missing, or cached module data unavailable
+## Refresh model
+- default refresh interval: ${REFRESH_INTERVAL_HOURS} hours
+- built-in scheduler enabled: ${ENABLE_AUTO_REFRESH ? 'yes' : 'no'}
+- manual refresh command: npm run refresh:snapshots
 
-## Operations
+## Player visibility requirement
+Tracked players need a public tracker.gg profile, or their stats cannot be scraped.
 
-### Snapshot refresh command
-Run:
-  npm run refresh:snapshots
-
-This command refreshes all tracked users and writes updated snapshots to disk.
-
-## Notes
-- tracker.gg has no official Valorant API; refresh jobs scrape public profile pages through Apify
-- live API traffic never triggers Apify runs
-- totalPlaytime is treated as shared across playlists
-- rank is always served from the competitive snapshot
-- nextRefreshAt is calculated from cachedAt + ${REFRESH_INTERVAL_HOURS} hours
-- current ENABLE_AUTO_REFRESH setting: ${ENABLE_AUTO_REFRESH ? 'enabled' : 'disabled'}
+Current verified flow:
+1. Open an incognito/private browser window.
+2. Sign in to the correct Riot account.
+3. Open your Valorant profile on tracker.gg.
+4. Check “I acknowledge signing in makes my profile public to all users”.
+5. Click “Sign in with Riot”.
+6. Enter credentials manually and finish the flow.
 `.trimEnd();
+}
 
-router.get('/llms.txt', (req, res) => {
-  res.type('text/plain').send(LLMS_TXT);
+function buildExampleBlock({ id, title, curl, js, payloadNote }) {
+  return `
+    <section class="example-block">
+      <div class="example-head">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          ${payloadNote ? `<p>${escapeHtml(payloadNote)}</p>` : ''}
+        </div>
+        <div class="toggle" role="tablist" aria-label="${escapeHtml(title)} example format">
+          <button type="button" class="toggle__btn is-active" data-example="${escapeHtml(id)}" data-lang="curl">cURL</button>
+          <button type="button" class="toggle__btn" data-example="${escapeHtml(id)}" data-lang="js">JavaScript</button>
+        </div>
+      </div>
+      <pre class="code code--active" data-example-panel="${escapeHtml(id)}" data-lang="curl"><code>${escapeHtml(curl)}</code></pre>
+      <pre class="code" data-example-panel="${escapeHtml(id)}" data-lang="js"><code>${escapeHtml(js)}</code></pre>
+    </section>
+  `;
+}
+
+function buildDocsHtml(baseUrl) {
+  const trackedHtml = buildTrackedListHtml();
+  const sampleUsername = TRACKED_USERNAMES[0] || 'PlayerName#TAG';
+  const encodedSampleUsername = encodeURIComponent(sampleUsername);
+  const statsUrl = `${baseUrl}/valorant/stats/${encodedSampleUsername}`;
+  const docsUrl = `${baseUrl}/docs`;
+  const healthUrl = `${baseUrl}/health`;
+  const llmsUrl = `${baseUrl}/llms.txt`;
+
+  const exampleBlocks = [
+    buildExampleBlock({
+      id: 'agents-basic',
+      title: 'Basic request: competitive agents',
+      payloadNote: 'Use the top-level playlist when all requested modules come from the same playlist.',
+      curl: `curl -X POST '${statsUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-API-Key: your-api-key' \\
+  -d '{
+    "playlist": "competitive",
+    "modules": {
+      "agents": {}
+    }
+  }'`,
+      js: `const response = await fetch('${statsUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    playlist: 'competitive',
+    modules: {
+      agents: {}
+    }
+  })
 });
 
-const TRACKED_HTML = TRACKED_USERNAMES.length
-  ? TRACKED_USERNAMES.map((username) => `<li><code>${escapeHtml(username)}</code></li>`).join('')
-  : '<li><code>none configured</code></li>';
+const data = await response.json();`,
+    }),
+    buildExampleBlock({
+      id: 'multiple-modules',
+      title: 'Multiple modules in one request',
+      payloadNote: 'You can request rank, agents, maps, and shared total playtime together.',
+      curl: `curl -X POST '${statsUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-API-Key: your-api-key' \\
+  -d '{
+    "playlist": "competitive",
+    "modules": {
+      "rank": {},
+      "agents": {},
+      "maps": {},
+      "totalPlaytime": {}
+    }
+  }'`,
+      js: `const response = await fetch('${statsUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    playlist: 'competitive',
+    modules: {
+      rank: {},
+      agents: {},
+      maps: {},
+      totalPlaytime: {}
+    }
+  })
+});
 
-const DOCS_HTML = `<!DOCTYPE html>
+const data = await response.json();`,
+    }),
+    buildExampleBlock({
+      id: 'mixed-playlists',
+      title: 'Mixed playlists in one request',
+      payloadNote: 'Override the top-level playlist per module when you want to mix competitive and unrated data.',
+      curl: `curl -X POST '${statsUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-API-Key: your-api-key' \\
+  -d '{
+    "playlist": "competitive",
+    "modules": {
+      "agents": { "playlist": "unrated" },
+      "maps": { "playlist": "competitive" },
+      "totalPlaytime": {}
+    }
+  }'`,
+      js: `const response = await fetch('${statsUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    playlist: 'competitive',
+    modules: {
+      agents: { playlist: 'unrated' },
+      maps: { playlist: 'competitive' },
+      totalPlaytime: {}
+    }
+  })
+});
+
+const data = await response.json();`,
+    }),
+    buildExampleBlock({
+      id: 'limits',
+      title: 'Trim array results with limit',
+      payloadNote: 'Limit only affects array modules such as agents and maps.',
+      curl: `curl -X POST '${statsUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-API-Key: your-api-key' \\
+  -d '{
+    "playlist": "competitive",
+    "modules": {
+      "agents": { "limit": 3 },
+      "maps": { "limit": 5 }
+    }
+  }'`,
+      js: `const response = await fetch('${statsUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    playlist: 'competitive',
+    modules: {
+      agents: { limit: 3 },
+      maps: { limit: 5 }
+    }
+  })
+});
+
+const data = await response.json();`,
+    }),
+    buildExampleBlock({
+      id: 'unrated-default',
+      title: 'Use unrated as the default playlist',
+      payloadNote: 'This keeps the payload shorter when most modules should use unrated data.',
+      curl: `curl -X POST '${statsUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-API-Key: your-api-key' \\
+  -d '{
+    "playlist": "unrated",
+    "modules": {
+      "agents": {},
+      "maps": {},
+      "rank": {},
+      "totalPlaytime": {}
+    }
+  }'`,
+      js: `const response = await fetch('${statsUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    playlist: 'unrated',
+    modules: {
+      agents: {},
+      maps: {},
+      rank: {},
+      totalPlaytime: {}
+    }
+  })
+});
+
+const data = await response.json();`,
+    }),
+  ].join('\n');
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Valorant Stats API</title>
+  <title>Valorant Stats API Docs</title>
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #171a21;
-      --panel-2: #1f2430;
-      --text: #ebedf2;
-      --muted: #9aa3b2;
+      --bg: #0d1016;
+      --panel: #151a23;
+      --panel-2: #1d2430;
+      --panel-3: #242d3c;
+      --text: #edf2f7;
+      --muted: #9fb0c6;
+      --border: #2f3a4d;
       --accent: #ff4655;
-      --border: #2d3443;
-      --good: #40c463;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --accent-soft: rgba(255, 70, 85, 0.12);
+      --good: #50c878;
+      --code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
     }
 
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background: linear-gradient(180deg, #0f1115 0%, #121723 100%);
+      background:
+        radial-gradient(circle at top right, rgba(255, 70, 85, 0.14), transparent 24%),
+        linear-gradient(180deg, #0d1016 0%, #111723 100%);
       color: var(--text);
       font-family: var(--sans);
       line-height: 1.6;
     }
+    a { color: var(--text); }
+    code, pre { font-family: var(--code); }
     .wrap {
-      width: min(980px, calc(100% - 32px));
+      width: min(1120px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 40px 0 64px;
+      padding: 32px 0 64px;
     }
-    .hero, .card {
-      background: rgba(23, 26, 33, 0.92);
+    .hero {
+      background: rgba(21, 26, 35, 0.92);
       border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 24px;
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
     }
-    .hero { margin-bottom: 20px; }
-    h1, h2, h3 { margin: 0 0 12px; }
-    h1 { font-size: 38px; line-height: 1.1; }
-    h2 { font-size: 22px; margin-top: 28px; }
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: auto -80px -80px auto;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(255, 70, 85, 0.22), transparent 65%);
+      pointer-events: none;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 70, 85, 0.35);
+      background: var(--accent-soft);
+      color: #ffd6da;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 {
+      margin: 0 0 12px;
+      line-height: 1.15;
+    }
+    h1 { font-size: clamp(34px, 5vw, 56px); max-width: 720px; }
+    h2 { font-size: 26px; margin-top: 0; }
+    h3 { font-size: 19px; }
     p, li { color: var(--muted); }
-    code, pre {
-      font-family: var(--mono);
+    .hero-copy {
+      max-width: 760px;
+      font-size: 17px;
+    }
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .link-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
       background: var(--panel-2);
       border: 1px solid var(--border);
-      border-radius: 10px;
-    }
-    code { padding: 2px 6px; }
-    pre {
-      padding: 14px;
-      overflow: auto;
-      white-space: pre-wrap;
+      text-decoration: none;
     }
     .grid {
       display: grid;
-      gap: 20px;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      margin-top: 18px;
     }
-    .pill {
-      display: inline-block;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 70, 85, 0.35);
-      color: var(--accent);
-      font-size: 13px;
-      margin-bottom: 14px;
+    .card, .section {
+      background: rgba(21, 26, 35, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
     }
-    .ok {
+    .card {
+      padding: 22px;
+    }
+    .section {
+      padding: 26px;
+      margin-top: 18px;
+    }
+    .stat-list, .plain-list {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .good {
       color: var(--good);
+      font-weight: 600;
+    }
+    .code {
+      margin: 0;
+      padding: 16px;
+      background: #0f141d;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: auto;
+      display: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .code--active {
+      display: block;
+    }
+    .inline-code {
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: var(--panel-3);
+      border: 1px solid var(--border);
+      font-family: var(--code);
+      font-size: 0.95em;
+    }
+    .example-block {
+      margin-top: 22px;
+    }
+    .example-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .toggle {
+      display: inline-flex;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .toggle__btn {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .toggle__btn.is-active {
+      background: var(--accent);
+      color: white;
       font-weight: 600;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 14px;
+      margin-top: 12px;
     }
     th, td {
       text-align: left;
-      padding: 10px 12px;
+      padding: 12px 10px;
       border-bottom: 1px solid var(--border);
       vertical-align: top;
     }
     th { color: var(--text); }
-    .section { margin-top: 20px; }
-    a { color: var(--accent); }
+    .note {
+      border-left: 3px solid var(--accent);
+      padding: 12px 14px;
+      background: rgba(255, 70, 85, 0.08);
+      border-radius: 0 14px 14px 0;
+      margin-top: 14px;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    @media (max-width: 720px) {
+      .wrap { width: min(100% - 20px, 1120px); padding-top: 20px; }
+      .hero, .card, .section { border-radius: 18px; }
+      .section { padding: 20px; }
+      .hero { padding: 22px; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="hero">
-      <div class="pill">Snapshot-only API</div>
+      <div class="eyebrow">Self-hostable • Snapshot-backed • Authenticated</div>
       <h1>Valorant Stats API</h1>
-      <p>Public tracker.gg data is refreshed on a schedule through Apify and stored as local snapshots. Live API requests only read cached snapshot data and never launch a scraper run.</p>
-      <p class="ok">Phase 1 behavior: only tracked users are supported.</p>
+      <p class="hero-copy">
+        A reusable API for tracked Riot IDs that refreshes data through Apify, stores snapshots on disk, and serves clean cached responses to your app, site, or dashboard.
+      </p>
+      <p class="hero-copy">
+        This project is built for people who want stable stats responses, predictable hosting, and a simple setup without adding a database on day one.
+      </p>
+      <div class="hero-links">
+        <a class="link-chip" href="${escapeHtml(baseUrl)}">Base URL: ${escapeHtml(baseUrl)}</a>
+        <a class="link-chip" href="${escapeHtml(healthUrl)}">Health: ${escapeHtml(healthUrl)}</a>
+        <a class="link-chip" href="${escapeHtml(llmsUrl)}">LLMs.txt</a>
+        <a class="link-chip" href="https://github.com/" target="_blank" rel="noreferrer">Open source friendly setup</a>
+      </div>
     </section>
 
     <div class="grid">
       <section class="card">
-        <h3>Tracked users</h3>
-        <ul>${TRACKED_HTML}</ul>
-        <p>Unknown usernames return <code>404 User not tracked</code>.</p>
+        <h3>Tracked players</h3>
+        <ul class="plain-list">${trackedHtml}</ul>
+        <p>Only configured Riot IDs are available. Unknown users return <span class="inline-code">404 User not tracked</span>.</p>
       </section>
-
       <section class="card">
-        <h3>Refresh command</h3>
-        <pre>npm run refresh:snapshots</pre>
-        <p>Enable in-process refresh with <code>ENABLE_AUTO_REFRESH=true</code>, or run this command externally on your preferred schedule.</p>
+        <h3>Authentication</h3>
+        <p>All <span class="inline-code">/valorant</span> routes require <span class="inline-code">X-API-Key</span>.</p>
+        <pre class="code code--active"><code>X-API-Key: your-api-key</code></pre>
+        <p>API keys are mandatory by design so accidental public deployments do not fail open.</p>
+      </section>
+      <section class="card">
+        <h3>Refresh model</h3>
+        <p>Snapshots refresh every <span class="inline-code">${REFRESH_INTERVAL_HOURS}h</span> by default.</p>
+        <p>Built-in scheduler: <span class="good">${ENABLE_AUTO_REFRESH ? 'enabled' : 'disabled'}</span></p>
+        <p>Manual refresh command: <span class="inline-code">npm run refresh:snapshots</span></p>
       </section>
     </div>
 
-    <section class="card section">
-      <h2>Endpoint</h2>
-      <p><code>POST /valorant/stats/:username</code></p>
-      <p>Request body:</p>
-      <pre>{
+    <section class="section">
+      <h2>Request Shape</h2>
+      <p>
+        Endpoint: <span class="inline-code">POST /valorant/stats/:username</span><br>
+        Sample path: <span class="inline-code">POST /valorant/stats/${escapeHtml(encodedSampleUsername)}</span>
+      </p>
+      <pre class="code code--active"><code>{
   "playlist": "competitive",
   "modules": {
-    "agents": { "playlist": "unrated", "limit": 3 },
-    "maps": {},
+    "rank": {},
+    "agents": {},
+    "maps": { "playlist": "unrated", "limit": 3 },
     "totalPlaytime": {}
   }
-}</pre>
-      <p>Valid modules are <code>rank</code>, <code>agents</code>, <code>maps</code>, and <code>totalPlaytime</code>.</p>
-      <p><code>rank</code> always comes from the competitive snapshot. <code>totalPlaytime</code> is shared across playlists.</p>
+}</code></pre>
+      <div class="note">
+        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">rank</span> always comes from competitive data, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
+      </div>
     </section>
 
-    <section class="card section">
-      <h2>Snapshot layout</h2>
-      <pre>{
-  "username": "Spider31415#6921",
-  "lastRefreshedAt": "2026-05-19T10:00:00.000Z",
+    <section class="section">
+      <h2>Examples</h2>
+      <p>Use these as copy-paste starters. Every example below is shown in both cURL and JavaScript.</p>
+      ${exampleBlocks}
+    </section>
+
+    <section class="section">
+      <h2>Response Shape</h2>
+      <pre class="code code--active"><code>{
+  "username": "${escapeHtml(sampleUsername)}",
+  "playlist": "competitive",
+  "cachedAt": "2026-05-19T10:00:00.000Z",
+  "nextRefreshAt": "2026-05-21T10:00:00.000Z",
   "status": "ok",
   "data": {
-    "competitive": {
-      "rank": {},
-      "agents": [],
-      "maps": []
-    },
-    "unrated": {
-      "agents": [],
-      "maps": []
-    },
-    "shared": {
-      "totalPlaytime": {}
-    }
+    "agents": [
+      {
+        "agent": "Omen",
+        "role": "Controller",
+        "timePlayed": "58 hrs",
+        "matches": "98",
+        "winRate": "53.1%",
+        "kd": "1.05",
+        "adr": "143.3",
+        "acs": "222.3",
+        "ddDelta": "+8",
+        "hsPercent": "17.8%",
+        "kast": "71.7%",
+        "icon": "https://...",
+        "portrait": "https://...",
+        "killfeedPortrait": "https://..."
+      }
+    ]
   }
-}</pre>
+}</code></pre>
     </section>
 
-    <section class="card section">
-      <h2>Refresh runs per full snapshot</h2>
+    <section class="section">
+      <h2>Error Behavior</h2>
       <table>
         <thead>
-          <tr><th>Page</th><th>Playlist</th><th>Module</th></tr>
+          <tr><th>Status</th><th>When it happens</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>/overview</code></td><td><code>competitive</code></td><td><code>rank</code></td></tr>
-          <tr><td><code>/agents</code></td><td><code>competitive</code></td><td><code>agents</code></td></tr>
-          <tr><td><code>/maps</code></td><td><code>competitive</code></td><td><code>maps</code></td></tr>
-          <tr><td><code>/performance</code></td><td><code>competitive</code></td><td><code>totalPlaytime</code> shared</td></tr>
-          <tr><td><code>/agents</code></td><td><code>unrated</code></td><td><code>agents</code></td></tr>
-          <tr><td><code>/maps</code></td><td><code>unrated</code></td><td><code>maps</code></td></tr>
+          <tr><td><span class="inline-code">400</span></td><td>Malformed username encoding, invalid playlist, invalid module name, invalid module config, or invalid limit</td></tr>
+          <tr><td><span class="inline-code">401</span></td><td>Missing or invalid API key</td></tr>
+          <tr><td><span class="inline-code">404</span></td><td>User not tracked, snapshot missing, or requested cached module unavailable</td></tr>
         </tbody>
       </table>
     </section>
 
-    <section class="card section">
-      <h2>Error behavior</h2>
-      <ul>
-        <li><code>400</code>: invalid playlist, module, or limit</li>
-        <li><code>401</code>: missing or invalid API key</li>
-        <li><code>404</code>: user not tracked, snapshot missing, or requested cached module data unavailable</li>
+    <section class="section">
+      <h2>Profile Visibility Requirement</h2>
+      <p>
+        For this API to track a player, that player’s tracker.gg profile needs to be public. If the profile stays private, the refresh job will not be able to collect the data your API serves.
+      </p>
+      <p>
+        Based on current Tracker Network support guidance, the most reliable flow is:
+      </p>
+      <ol class="plain-list">
+        <li>Open an incognito/private browser window.</li>
+        <li>Sign in to the correct Riot account, and if needed the correct Tracker Network account.</li>
+        <li>Open your own Valorant profile page on tracker.gg.</li>
+        <li>Check the box that says <span class="inline-code">I acknowledge signing in makes my profile public to all users</span>.</li>
+        <li>Click <span class="inline-code">Sign in with Riot</span>.</li>
+        <li>Enter credentials manually instead of relying on browser auto sign-in.</li>
+        <li>Finish the sign-in flow and return to your now-public profile page.</li>
+      </ol>
+      <div class="note">
+        <strong>Common gotchas:</strong> <span class="muted">multiple Riot accounts in one browser session, browser auto sign-in choosing the wrong account, and assuming that signing into your own account will reveal someone else’s private profile.</span>
+      </div>
+      <div class="footer-links">
+        <a class="link-chip" href="https://feedback.tracker.gg/t/cant-make-my-account-public/59367/2" target="_blank" rel="noreferrer">Tracker support: make profile public</a>
+        <a class="link-chip" href="https://feedback.tracker.gg/t/cannot-link-valorant-account/57359" target="_blank" rel="noreferrer">Tracker support: linking/account mismatch</a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Operational Notes</h2>
+      <ul class="plain-list">
+        <li>One snapshot file is stored per tracked Riot ID.</li>
+        <li>Snapshots are served from disk and are not regenerated during request handling.</li>
+        <li>If you deploy this yourself, keep persistent storage attached to <span class="inline-code">cache/snapshots/</span>.</li>
+        <li>For setup and deployment guidance, use the project README first, then come back here for request examples and usage patterns.</li>
       </ul>
+      <div class="footer-links">
+        <a class="link-chip" href="${escapeHtml(docsUrl)}">Current docs page</a>
+        <a class="link-chip" href="${escapeHtml(baseUrl)}">Base URL</a>
+      </div>
     </section>
   </div>
+
+  <script>
+    document.querySelectorAll('.toggle__btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        const { example, lang } = button.dataset;
+        const groupButtons = document.querySelectorAll('.toggle__btn[data-example="' + example + '"]');
+        const panels = document.querySelectorAll('[data-example-panel="' + example + '"]');
+
+        groupButtons.forEach((btn) => btn.classList.toggle('is-active', btn === button));
+        panels.forEach((panel) => {
+          const isActive = panel.dataset.lang === lang;
+          panel.classList.toggle('code--active', isActive);
+        });
+      });
+    });
+  </script>
 </body>
 </html>`;
+}
+
+router.get('/llms.txt', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  res.type('text/plain').send(buildLlmsTxt(baseUrl));
+});
 
 router.get(['/docs', '/'], (req, res) => {
-  res.type('html').send(DOCS_HTML);
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  res.type('html').send(buildDocsHtml(baseUrl));
 });
 
 module.exports = router;
