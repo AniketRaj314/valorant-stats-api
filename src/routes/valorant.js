@@ -9,6 +9,10 @@ const router = express.Router();
 const VALID_PLAYLISTS = new Set(['competitive', 'unrated']);
 const VALID_MODULES = new Set(Object.keys(MODULE_DEFINITIONS));
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function applyModuleLimits(data, modulesBody) {
   const result = { ...data };
   for (const [mod, config] of Object.entries(modulesBody)) {
@@ -38,7 +42,13 @@ function computeNextRefreshAt(cachedAt) {
 }
 
 router.post('/stats/:username', async (req, res) => {
-  const username = decodeURIComponent(req.params.username);
+  let username;
+  try {
+    username = decodeURIComponent(req.params.username);
+  } catch {
+    log('DECISION', `Request rejected because username path segment is not valid URL encoding: ${req.params.username}`);
+    return res.status(400).json({ error: 'username must be valid URL-encoded text' });
+  }
   const { playlist: topPlaylist = 'competitive', modules: modulesBody } = req.body ?? {};
   log('REQUEST', `${username} | incoming stats request`);
 
@@ -47,7 +57,7 @@ router.post('/stats/:username', async (req, res) => {
     return res.status(404).json({ error: 'User not tracked' });
   }
 
-  if (!modulesBody || typeof modulesBody !== 'object' || Array.isArray(modulesBody)) {
+  if (!isPlainObject(modulesBody)) {
     log('DECISION', `${username} request rejected because modules payload is missing or invalid`);
     return res.status(400).json({ error: 'modules is required and must be an object' });
   }
@@ -69,6 +79,10 @@ router.post('/stats/:username', async (req, res) => {
   }
 
   for (const [mod, config] of Object.entries(modulesBody)) {
+    if (!isPlainObject(config)) {
+      log('DECISION', `${username} request rejected because module ${mod} config is not an object`);
+      return res.status(400).json({ error: `module "${mod}" must be an object` });
+    }
     if (config.playlist !== undefined && !VALID_PLAYLISTS.has(config.playlist)) {
       log('DECISION', `${username} request rejected because module ${mod} has invalid playlist=${config.playlist}`);
       return res.status(400).json({

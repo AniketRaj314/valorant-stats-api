@@ -5,6 +5,15 @@ const { ENABLE_AUTO_REFRESH, REFRESH_INTERVAL_HOURS, TRACKED_USERNAMES } = requi
 
 const router = express.Router();
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const trackedList = TRACKED_USERNAMES.length
   ? TRACKED_USERNAMES.map((username) => `- ${username}`).join('\n')
   : '- none configured';
@@ -16,7 +25,7 @@ const LLMS_TXT = `# Valorant Stats API
 Base URL: https://api.aniketraj.me
 
 ## Authentication
-All /valorant routes require an API key passed in the X-API-Key request header when API_KEYS is configured.
+All /valorant routes require an API key passed in the X-API-Key request header.
 
 Example:
   X-API-Key: your-key-here
@@ -133,7 +142,7 @@ router.get('/llms.txt', (req, res) => {
 });
 
 const TRACKED_HTML = TRACKED_USERNAMES.length
-  ? TRACKED_USERNAMES.map((username) => `<li><code>${username}</code></li>`).join('')
+  ? TRACKED_USERNAMES.map((username) => `<li><code>${escapeHtml(username)}</code></li>`).join('')
   : '<li><code>none configured</code></li>';
 
 const DOCS_HTML = `<!DOCTYPE html>
@@ -310,7 +319,7 @@ const DOCS_HTML = `<!DOCTYPE html>
       <h2>Error behavior</h2>
       <ul>
         <li><code>400</code>: invalid playlist, module, or limit</li>
-        <li><code>401</code>: missing or invalid API key when auth is enabled</li>
+        <li><code>401</code>: missing or invalid API key</li>
         <li><code>404</code>: user not tracked, snapshot missing, or requested cached module data unavailable</li>
       </ul>
     </section>

@@ -11,19 +11,30 @@ function ensureSnapshotDir() {
   }
 }
 
-function safeUsername(username) {
-  return username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+function encodeUsername(username) {
+  return Buffer.from(username, 'utf8').toString('base64url');
 }
 
 function snapshotPath(username) {
-  return path.join(SNAPSHOT_DIR, `${safeUsername(username)}.json`);
+  return path.join(SNAPSHOT_DIR, `${encodeUsername(username)}.json`);
+}
+
+function legacySnapshotPath(username) {
+  const legacySafeUsername = username.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  return path.join(SNAPSHOT_DIR, `${legacySafeUsername}.json`);
 }
 
 function readSnapshot(username) {
   try {
-    const filePath = snapshotPath(username);
+    const preferredPath = snapshotPath(username);
+    const legacyPath = legacySnapshotPath(username);
+    const filePath = fs.existsSync(preferredPath) ? preferredPath : legacyPath;
     const raw = fs.readFileSync(filePath, 'utf8');
-    log('SNAPSHOT', `Read snapshot for ${username} from ${filePath}`);
+    if (filePath === legacyPath && legacyPath !== preferredPath) {
+      log('SNAPSHOT', `Read legacy snapshot for ${username} from ${filePath}`);
+    } else {
+      log('SNAPSHOT', `Read snapshot for ${username} from ${filePath}`);
+    }
     return JSON.parse(raw);
   } catch {
     log('SNAPSHOT', `No snapshot found for ${username}`);

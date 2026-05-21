@@ -49,6 +49,9 @@ app.use((req, res) => {
     'CONFIG',
     `Boot config | trackedUsers=${TRACKED_USERNAMES.length} | autoRefresh=${ENABLE_AUTO_REFRESH} | refreshIntervalHours=${REFRESH_INTERVAL_HOURS}`
   );
+  if (VALID_KEYS.size === 0) {
+    throw new Error('API_KEYS must be configured before starting the server');
+  }
   if (TRACKED_USERNAMES.length === 0) {
     log('WARN', 'No tracked users configured; API will return 404 for all usernames until TRACKED_USERNAMES is set');
   } else {

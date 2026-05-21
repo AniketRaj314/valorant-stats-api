@@ -42,6 +42,7 @@ Phase 1 is intentionally narrow:
    ```
 
    Note: Riot IDs include `#`, so `TRACKED_USERNAMES` must be quoted in `.env` files.
+   Note: `API_KEYS` is required; the server refuses to start without at least one key.
 
 3. Run the API
 
@@ -162,6 +163,8 @@ Returns server health, package version, and uptime.
 ### `POST /valorant/stats/:username`
 
 Returns snapshot-backed stats for a tracked player.
+
+Send your API key in the `X-API-Key` header on every `/valorant` request.
 
 Request body:
 

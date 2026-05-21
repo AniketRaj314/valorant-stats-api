@@ -69,10 +69,21 @@ describe('validation', () => {
     expect(res.body.error).toContain('ranked');
   });
 
+  test('malformed encoded username returns 400', async () => {
+    const res = await request(app).post('/valorant/stats/%E0%A4%A').send({ modules: { agents: {} } });
+    expect(res.status).toBe(400);
+  });
+
   test('invalid module returns 400', async () => {
     const res = await request(app).post(URL).send({ modules: { nope: {} } });
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('nope');
+  });
+
+  test('module config must be an object', async () => {
+    const res = await request(app).post(URL).send({ modules: { agents: null } });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('agents');
   });
 
   test('invalid per-module playlist returns 400', async () => {
