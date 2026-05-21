@@ -1,15 +1,38 @@
-# Modules Reference
+# Snapshot Modules Reference
 
-This file documents how snapshot refreshes map to tracker.gg pages.
+This page is for contributors working on the scraper, snapshot format, or API module behavior.
 
-The live API does not scrape on request. These modules are only used by the scheduled refresh job.
+If you are only consuming the API, use the public docs page instead:
 
----
+- `/valorant/docs`
+- `/valorant/llms.txt`
 
-## Current Snapshot Layout
+## What a module means in this project
+
+A module is a requestable piece of cached Valorant data exposed by:
+
+- `POST /valorant/stats/:username`
+
+Today, the supported modules are:
+
+- `rank`
+- `agents`
+- `maps`
+- `totalPlaytime`
+
+Each module has three layers:
+
+1. how it is scraped from tracker.gg
+2. where it is stored inside the snapshot JSON
+3. how `src/routes/valorant.js` resolves it for API responses
+
+## Current snapshot layout
 
 ```json
 {
+  "username": "Spider31415#6921",
+  "status": "ok",
+  "lastRefreshedAt": "2026-05-21T07:41:27.572Z",
   "data": {
     "competitive": {
       "rank": {},
@@ -27,26 +50,73 @@ The live API does not scrape on request. These modules are only used by the sche
 }
 ```
 
----
+## Refresh flow
 
-## Refresh Runs
+`src/refreshSnapshot.js` refreshes one user in six ordered steps:
 
-| Module | Page | Playlist | Stored Under | waitFor Selector |
-|--------|------|----------|--------------|------------------|
-| `rank` | `/overview` | `competitive` | `data.competitive.rank` | `.area-rating .rating-entry__rank-info .value` |
-| `agents` | `/agents` | `competitive` | `data.competitive.agents` | `.st-content__item` |
-| `maps` | `/maps` | `competitive` | `data.competitive.maps` | `.st-content__item` |
-| `totalPlaytime` | `/performance` | `competitive` | `data.shared.totalPlaytime` | `.playtime-summary .value` |
-| `agents` | `/agents` | `unrated` | `data.unrated.agents` | `.st-content__item` |
-| `maps` | `/maps` | `unrated` | `data.unrated.maps` | `.st-content__item` |
+1. competitive `rank`
+2. competitive `agents`
+3. competitive `maps`
+4. shared `totalPlaytime`
+5. unrated `agents`
+6. unrated `maps`
 
-`totalPlaytime` is treated as shared across playlists, so only one refresh run is used for it.
+The step list currently lives in `REFRESH_STEPS` inside `src/refreshSnapshot.js`.
 
----
+## Module source map
 
-## Module Shapes
+| Module | tracker.gg page | Playlist used | Stored under | Route resolution |
+| --- | --- | --- | --- | --- |
+| `rank` | `/overview` | `competitive` only | `data.competitive.rank` | always read from `competitive` |
+| `agents` | `/agents` | `competitive` or `unrated` | `data.competitive.agents` or `data.unrated.agents` | read from requested playlist |
+| `maps` | `/maps` | `competitive` or `unrated` | `data.competitive.maps` or `data.unrated.maps` | read from requested playlist |
+| `totalPlaytime` | `/performance` | fetched during competitive refresh step | `data.shared.totalPlaytime` | always read from `shared` |
 
-## `rank`
+## Scraper behavior
+
+The module definitions live in `src/scraper.js` under `MODULE_DEFINITIONS`.
+
+Each entry defines:
+
+- `page`: tracker.gg route segment like `overview`, `agents`, `maps`, or `performance`
+- `playlist`: optional fixed playlist override
+- `waitFor`: Playwright selector used before extraction
+- `waitForState`: optional selector state, defaults to `visible`
+- `readyCheck`: optional `page.waitForFunction()` predicate
+- `extract`: browser-side DOM extraction logic
+
+Current readiness rules:
+
+| Module | waitFor | Notes |
+| --- | --- | --- |
+| `rank` | `.area-rating .rating-entry__rank-info .value` | visible wait is sufficient |
+| `agents` | `.st-content__item` | uses `attached` plus a `readyCheck` for non-empty agent names |
+| `maps` | `.st-content__item` | waits for map rows before extraction |
+| `totalPlaytime` | `.playtime-summary .value` | single-value summary extraction |
+
+## API resolution rules
+
+The request handler logic lives in `src/routes/valorant.js`.
+
+Important rules:
+
+- top-level `playlist` defaults to `competitive`
+- `rank` always resolves from `data.competitive.rank`
+- `totalPlaytime` always resolves from `data.shared.totalPlaytime`
+- `agents` and `maps` resolve from either `competitive` or `unrated`
+- per-module `playlist` overrides the top-level playlist
+- `limit` is only applied after snapshot data is read, inside `applyModuleLimits()`
+
+Examples:
+
+- `{"modules":{"rank":{}}}` reads from `data.competitive.rank`
+- `{"playlist":"unrated","modules":{"agents":{}}}` reads from `data.unrated.agents`
+- `{"playlist":"competitive","modules":{"agents":{"playlist":"unrated"}}}` reads from `data.unrated.agents`
+- `{"modules":{"totalPlaytime":{}}}` reads from `data.shared.totalPlaytime`
+
+## Module shapes
+
+### `rank`
 
 Always sourced from the competitive overview page.
 
@@ -64,78 +134,89 @@ Always sourced from the competitive overview page.
 }
 ```
 
-## `agents`
+### `agents`
 
-Stored separately for `competitive` and `unrated`.
+Stored separately for `competitive` and `unrated`, then enriched with static agent metadata.
 
 ```json
 [
   {
     "agent": "Omen",
     "role": "Controller",
-    "timePlayed": "58 hours",
+    "timePlayed": "58 hrs",
     "matches": "98",
     "winRate": "53.1%",
     "kd": "1.05",
     "adr": "143.3",
     "acs": "222.3",
-    "ddDelta": "+12.4",
-    "hsPercent": "18%",
-    "kast": "71%",
-    "icon": "https://media.valorant-api.com/...",
-    "portrait": "https://media.valorant-api.com/...",
-    "killfeedPortrait": "https://media.valorant-api.com/..."
+    "ddDelta": "+8",
+    "hsPercent": "17.8%",
+    "kast": "71.7%",
+    "icon": "https://media.valorant-api.com/agents/.../displayicon.png",
+    "portrait": "https://media.valorant-api.com/agents/.../fullportrait.png",
+    "killfeedPortrait": "https://media.valorant-api.com/agents/.../killfeedportrait.png"
   }
 ]
 ```
 
-## `maps`
+### `maps`
 
-Stored separately for `competitive` and `unrated`.
+Stored separately for `competitive` and `unrated`, then enriched with static map metadata and top-agent metadata.
 
 ```json
 [
   {
     "map": "Sunset",
-    "displayIcon": "https://media.valorant-api.com/maps/.../displayicon.png",
-    "splash": "https://media.valorant-api.com/maps/.../splash.png",
+    "topAgents": [
+      {
+        "agent": "Omen",
+        "winRate": "65%",
+        "icon": "https://...",
+        "portrait": "https://...",
+        "killfeedPortrait": "https://...",
+        "role": "Controller"
+      }
+    ],
     "winRate": "62.8%",
     "wins": "86",
     "losses": "51",
     "kd": "1.43",
     "adr": "145.2",
     "acs": "228.1",
-    "topAgents": [
-      {
-        "agent": "Omen",
-        "winRate": "65%",
-        "role": "Controller",
-        "icon": "https://...",
-        "portrait": "https://...",
-        "killfeedPortrait": "https://..."
-      }
-    ]
+    "displayIcon": "https://media.valorant-api.com/maps/.../displayicon.png",
+    "splash": "https://media.valorant-api.com/maps/.../splash.png"
   }
 ]
 ```
 
-## `totalPlaytime`
+### `totalPlaytime`
 
 Stored once under `data.shared.totalPlaytime`.
 
 ```json
 {
-  "total": "1,243 hours"
+  "total": "2,018 hrs"
 }
 ```
 
----
+## Adding a new module
 
-## Adding Future Snapshot Fields
+If you want to expose another piece of tracker.gg data:
 
-If you discover multiple useful stats on the same tracker.gg page, they can be extracted in a single Apify run. To add one:
+1. Add or extend the module entry in `src/scraper.js`
+2. Decide which snapshot branch should own the data:
+   - `competitive`
+   - `unrated`
+   - `shared`
+3. Update `src/refreshSnapshot.js` so the refresh result is persisted
+4. Update `src/routes/valorant.js` so the API can resolve it correctly
+5. Add or update tests for:
+   - scraper extraction if needed
+   - snapshot persistence
+   - route behavior
 
-1. Add or expand the relevant entry in `src/scraper.js`.
-2. Decide where it should live in the snapshot shape.
-3. Update `src/refreshSnapshot.js` to persist it.
-4. Update `src/routes/valorant.js` if the field should be requestable through the API.
+## Contributor notes
+
+- `rank` and `totalPlaytime` are special-case modules and should not be treated like playlist-scoped arrays
+- `agents` is the most timing-sensitive table on tracker.gg and currently uses the loosest safe readiness strategy
+- `snapshotStore.js` now writes collision-safe base64url filenames, while still reading legacy snapshot filenames for compatibility
