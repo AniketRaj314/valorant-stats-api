@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const { version } = require('../../package.json');
 const { ENABLE_AUTO_REFRESH, REFRESH_INTERVAL_HOURS, TRACKED_USERNAMES } = require('../config');
 
 const router = express.Router();
@@ -36,6 +37,7 @@ function buildLlmsTxt(baseUrl) {
 > A reusable, self-hostable Valorant stats API for tracked Riot IDs.
 
 Base URL: ${baseUrl}
+Version: ${version}
 
 ## What it does
 - refreshes tracked player data from tracker.gg through Apify
@@ -541,6 +543,7 @@ const data = await response.json();`,
     <section class="hero">
       <div class="eyebrow">Self-hostable • Snapshot-backed • Authenticated</div>
       <h1>Valorant Stats API</h1>
+      <p class="muted"><strong>Version:</strong> <span class="inline-code">${escapeHtml(version)}</span></p>
       <p class="hero-copy">
         A reusable API for tracked Riot IDs that refreshes data through Apify, stores snapshots on disk, and serves clean cached responses to your app, site, or dashboard.
       </p>
@@ -551,7 +554,7 @@ const data = await response.json();`,
         <a class="link-chip" href="${escapeHtml(baseUrl)}">Base URL: ${escapeHtml(baseUrl)}</a>
         <a class="link-chip" href="${escapeHtml(healthUrl)}">Health: ${escapeHtml(healthUrl)}</a>
         <a class="link-chip" href="${escapeHtml(llmsUrl)}">LLMs.txt</a>
-        <a class="link-chip" href="https://github.com/" target="_blank" rel="noreferrer">Open source friendly setup</a>
+        <a class="link-chip" href="https://github.com/AniketRaj314/valorant-stats-api" target="_blank" rel="noreferrer">GitHub repository</a>
       </div>
     </section>
 
@@ -684,6 +687,15 @@ const data = await response.json();`,
         <a class="link-chip" href="${escapeHtml(docsUrl)}">Current docs page</a>
         <a class="link-chip" href="${escapeHtml(baseUrl)}">Base URL</a>
       </div>
+    </section>
+
+    <section class="section">
+      <h2>Contact</h2>
+      <p>If you are using this project, forking it, or want to contribute back, feel free to reach out.</p>
+      <ul class="plain-list">
+        <li>Email: <span class="inline-code">dev@aniketraj.me</span></li>
+        <li>Telegram: <span class="inline-code">@AniketRaj314</span></li>
+      </ul>
     </section>
   </div>
 

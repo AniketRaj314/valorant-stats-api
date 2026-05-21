@@ -4,6 +4,8 @@ A reusable, self-hostable Valorant stats API for tracked Riot IDs.
 
 This project refreshes player data from tracker.gg through Apify, stores snapshot files on disk, and serves those cached snapshots through a small authenticated Express API. It is designed for personal sites, side projects, dashboards, and self-hosted community tools where you want predictable API responses without scraping on every request.
 
+If you want to fork this for your own player page, use it as a base for a custom stats backend, or contribute improvements back upstream, that is exactly the kind of usage this repo is meant to support.
+
 For request examples and API usage, open the built-in docs page after the server starts:
 
 - local: `http://localhost:3000/docs`
@@ -185,6 +187,24 @@ After the server is running, see:
 
 - `/docs` for human-friendly usage docs
 - `/llms.txt` for a compact machine-readable summary
+
+## Forking and Contributing
+
+This project is intentionally small, hackable, and friendly to self-hosting.
+
+You can:
+
+- fork it and track your own Riot IDs
+- adapt the response shape for your own frontend
+- swap the storage layer later if you outgrow file-based snapshots
+- contribute fixes, docs improvements, or new modules
+
+If you want to contribute, start with [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+Questions, ideas, or responsible security reports:
+
+- Email: `dev@aniketraj.me`
+- Telegram: `@AniketRaj314`
 
 ## Security Defaults
 
