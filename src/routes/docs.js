@@ -46,7 +46,7 @@ Version: ${version}
 - never scrapes tracker.gg during request handling
 
 ## Authentication
-All /valorant routes require an API key in the X-API-Key request header.
+All /valorant/stats routes require an API key in the X-API-Key request header.
 
 Example:
   X-API-Key: your-key-here
@@ -68,7 +68,7 @@ If a tracked user does not have a snapshot yet:
 
 ## Request model
 Endpoint:
-  POST /valorant/stats/:username
+  POST /stats/:username
 
 Path parameter:
   username = URL-encoded Riot ID
@@ -149,7 +149,7 @@ function buildDocsHtml(baseUrl) {
   const trackedHtml = buildTrackedListHtml();
   const sampleUsername = TRACKED_USERNAMES[0] || 'PlayerName#TAG';
   const encodedSampleUsername = encodeURIComponent(sampleUsername);
-  const statsUrl = `${baseUrl}/valorant/stats/${encodedSampleUsername}`;
+  const statsUrl = `${baseUrl}/stats/${encodedSampleUsername}`;
   const docsUrl = `${baseUrl}/docs`;
   const healthUrl = `${baseUrl}/health`;
   const llmsUrl = `${baseUrl}/llms.txt`;
@@ -566,7 +566,7 @@ const data = await response.json();`,
       </section>
       <section class="card">
         <h3>Authentication</h3>
-        <p>All <span class="inline-code">/valorant</span> routes require <span class="inline-code">X-API-Key</span>.</p>
+        <p>All <span class="inline-code">/valorant/stats</span> routes require <span class="inline-code">X-API-Key</span>.</p>
         <pre class="code code--active"><code>X-API-Key: your-api-key</code></pre>
         <p>API keys are mandatory by design so accidental public deployments do not fail open.</p>
       </section>
@@ -581,8 +581,8 @@ const data = await response.json();`,
     <section class="section">
       <h2>Request Shape</h2>
       <p>
-        Endpoint: <span class="inline-code">POST /valorant/stats/:username</span><br>
-        Sample path: <span class="inline-code">POST /valorant/stats/${escapeHtml(encodedSampleUsername)}</span>
+        Endpoint: <span class="inline-code">POST /stats/:username</span><br>
+        Sample path: <span class="inline-code">POST /stats/${escapeHtml(encodedSampleUsername)}</span>
       </p>
       <pre class="code code--active"><code>{
   "playlist": "competitive",
@@ -719,12 +719,12 @@ const data = await response.json();`,
 }
 
 router.get('/llms.txt', (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}`;
   res.type('text/plain').send(buildLlmsTxt(baseUrl));
 });
 
 router.get(['/docs', '/'], (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const baseUrl = `${req.protocol}://${req.get('host')}${req.baseUrl}`;
   res.type('html').send(buildDocsHtml(baseUrl));
 });
 

@@ -8,8 +8,8 @@ If you want to fork this for your own player page, use it as a base for a custom
 
 For request examples and API usage, open the built-in docs page after the server starts:
 
-- local: `http://localhost:3000/docs`
-- deployed: `https://your-domain.example/docs`
+- local: `http://localhost:3000/valorant/docs`
+- deployed: `https://your-domain.example/valorant/docs`
 
 ## What You Get
 
@@ -85,7 +85,7 @@ If `ENABLE_AUTO_REFRESH=true`, the server can also refresh missing or due snapsh
 | Variable | Required | Description |
 |---|---|---|
 | `APIFY_TOKEN` | Yes | Apify token used for tracker.gg scraping runs |
-| `API_KEYS` | Yes | Comma-separated API keys accepted by `/valorant/*` routes |
+| `API_KEYS` | Yes | Comma-separated API keys accepted by `/valorant/stats/*` routes |
 | `TRACKED_USERNAMES` | Yes | Comma-separated Riot IDs to support in this API |
 | `PORT` | No | Port the server listens on. Defaults to `3000` |
 | `ENABLE_AUTO_REFRESH` | No | Set to `true` to enable the built-in scheduler |
@@ -185,8 +185,8 @@ npm run test:coverage
 
 After the server is running, see:
 
-- `/docs` for human-friendly usage docs
-- `/llms.txt` for a compact machine-readable summary
+- `/valorant/docs` for human-friendly usage docs
+- `/valorant/llms.txt` for a compact machine-readable summary
 
 ## Forking and Contributing
 
