@@ -15,6 +15,7 @@ For request examples and API usage, open the built-in docs page after the server
 
 - Snapshot-backed API for tracked Riot IDs
 - Competitive and unrated agent/map stats
+- Player profile data: account level, region, player card, and title
 - Competitive rank data
 - Total playtime across all modes
 - API key protection by default
@@ -27,6 +28,7 @@ Before you run this project, you need:
 
 - Node.js 18+
 - an [Apify](https://apify.com/) account and `APIFY_TOKEN`
+- a [HenrikDev](https://docs.henrikdev.xyz/valorant/) API key if you want profile data
 - at least one self-generated API key in `API_KEYS`
 - one or more Riot IDs in `TRACKED_USERNAMES`
 - tracker.gg profiles set to public for the players you want to track
@@ -49,6 +51,7 @@ Before you run this project, you need:
 
    ```env
    APIFY_TOKEN=your_apify_api_token
+   HENRIK_API_KEY=your_henrikdev_api_key
    PORT=3000
    API_KEYS=local-dev-key
    TRACKED_USERNAMES="Spider31415#6921"
@@ -78,7 +81,7 @@ Before you run this project, you need:
    npm run refresh:snapshots
    ```
 
-   Optional Henrik-backed profile refresh:
+6. Refresh profile data
 
    ```bash
    npm run refresh:profiles
@@ -107,10 +110,16 @@ Each tracked Riot ID gets one snapshot file on disk. A full refresh currently co
 - competitive rank (current and peak)
 - competitive agents
 - competitive maps
-- profile account level, region, player card, and player title when `npm run refresh:profiles` is run
 - total playtime across modes
 - unrated agents
 - unrated maps
+
+Profile data is refreshed separately with `npm run refresh:profiles`. It collects:
+
+- account level
+- region
+- player card assets
+- player title display text
 
 The API only reads those snapshots. It does not scrape tracker.gg during request handling.
 
@@ -160,6 +169,7 @@ Recommended setup:
 5. Decide whether to use:
    - built-in refresh with `ENABLE_AUTO_REFRESH=true`, or
    - an external Railway cron service that runs `npm run refresh:snapshots`
+6. If you use profile data, run `npm run refresh:profiles` as a separate lightweight job.
 
 For a simple single-service deployment, the built-in scheduler is the easiest path.
 
@@ -170,6 +180,7 @@ This project works fine behind any process manager or container runtime, as long
 - expose the same `PORT` your app listens on
 - mount persistent storage for `cache/snapshots/`
 - provide `APIFY_TOKEN`, `API_KEYS`, and `TRACKED_USERNAMES`
+- provide `HENRIK_API_KEY` if you use `profile`
 - decide whether auto-refresh should run inside the app process
 
 Self-hosting checklist:
@@ -185,6 +196,7 @@ Self-hosting checklist:
 npm start
 npm run dev
 npm run refresh:snapshots
+npm run refresh:profiles
 npm test
 npm run test:coverage
 ```

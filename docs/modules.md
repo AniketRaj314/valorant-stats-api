@@ -34,6 +34,16 @@ Each module has three layers:
   "username": "Spider31415#6921",
   "status": "ok",
   "lastRefreshedAt": "2026-05-21T07:41:27.572Z",
+  "sources": {
+    "tracker": {
+      "status": "ok",
+      "lastRefreshedAt": "2026-05-21T07:41:27.572Z"
+    },
+    "henrik": {
+      "status": "ok",
+      "lastRefreshedAt": "2026-05-23T18:05:10.932Z"
+    }
+  },
   "data": {
     "profile": {
       "accountLevel": 514,
@@ -57,7 +67,11 @@ Each module has three layers:
 }
 ```
 
-## Refresh flow
+## Refresh Flow
+
+There are two refresh paths because the underlying sources have different cost and timing characteristics.
+
+### Tracker Stats Refresh
 
 `src/refreshSnapshot.js` refreshes one user in six ordered steps:
 
@@ -70,6 +84,14 @@ Each module has three layers:
 
 The step list currently lives in `REFRESH_STEPS` inside `src/refreshSnapshot.js`.
 
+This command is comparatively slow because it calls the Apify/Playwright scraper:
+
+```bash
+npm run refresh:snapshots
+```
+
+### Henrik Profile Refresh
+
 `src/refreshHenrikProfiles.js` refreshes Henrik-backed profile data separately with:
 
 ```bash
@@ -77,6 +99,12 @@ npm run refresh:profiles
 ```
 
 That command merges `data.profile` into the same snapshot file without rerunning the tracker.gg/Apify refresh.
+
+The profile refresh uses:
+
+- HenrikDev `/valorant/v2/account/{name}/{tag}` for account level, region, card ID, and title ID
+- Valorant API `/v1/playercards` to resolve card images
+- Valorant API `/v1/playertitles` to resolve title display text
 
 ## Module source map
 
@@ -259,6 +287,7 @@ If you want to expose another piece of tracker.gg data:
 
 ## Contributor notes
 
-- `rank` and `totalPlaytime` are special-case modules and should not be treated like playlist-scoped arrays
+- `profile`, `rank`, and `totalPlaytime` are special-case modules and should not be treated like playlist-scoped arrays
+- Henrik-backed modules should merge into existing snapshots rather than replace Tracker-backed branches
 - `agents` is the most timing-sensitive table on tracker.gg and currently uses the loosest safe readiness strategy
 - `snapshotStore.js` now writes collision-safe base64url filenames, while still reading legacy snapshot filenames for compatibility

@@ -40,7 +40,8 @@ Base URL: ${baseUrl}
 Version: ${version}
 
 ## What it does
-- refreshes tracked player data from tracker.gg through Apify
+- refreshes tracked stats from tracker.gg through Apify
+- refreshes profile data from HenrikDev and enriches card/title assets with Valorant API
 - stores one snapshot per tracked Riot ID on disk
 - serves cached snapshot data through an authenticated API
 - never scrapes tracker.gg during request handling
@@ -78,6 +79,7 @@ Body shape:
 {
   "playlist": "competitive",
   "modules": {
+    "profile": {},
     "agents": {},
     "maps": { "playlist": "unrated", "limit": 3 },
     "rank": {},
@@ -89,6 +91,7 @@ Rules:
 - playlist must be competitive or unrated
 - modules is required and must be an object
 - valid modules are profile, rank, agents, maps, totalPlaytime
+- profile is not playlist-scoped
 - rank always comes from the competitive snapshot
 - totalPlaytime always comes from the shared snapshot
 - limit must be a positive integer
@@ -100,11 +103,33 @@ Rules:
   "cachedAt": "2026-05-19T10:00:00.000Z",
   "nextRefreshAt": "2026-05-21T10:00:00.000Z",
   "status": "ok",
+  "sources": {
+    "henrik": {
+      "status": "ok",
+      "lastRefreshedAt": "2026-05-20T12:15:00.000Z"
+    }
+  },
   "data": {
+    "profile": {
+      "accountLevel": 514,
+      "region": "ap",
+      "card": {
+        "id": "67d7faa4-4b40-e16a-1c54-0f9b41919849",
+        "name": "VCT x SEN Card",
+        "displayIcon": "https://...",
+        "smallArt": "https://...",
+        "wideArt": "https://...",
+        "largeArt": "https://..."
+      },
+      "title": {
+        "id": "ae54c1ce-42b9-3dc1-5e91-6c9e9161b01a",
+        "name": "Gnarly Title",
+        "displayText": "Gnarly"
+      }
+    },
+    "rank": {},
     "agents": [],
     "maps": [],
-    "profile": {},
-    "rank": {},
     "totalPlaytime": {}
   }
 }
@@ -157,6 +182,33 @@ function buildDocsHtml(baseUrl) {
   const llmsUrl = `${baseUrl}/llms.txt`;
 
   const exampleBlocks = [
+    buildExampleBlock({
+      id: 'profile-basic',
+      title: 'Player profile',
+      payloadNote: 'Profile returns account level, region, player card assets, and title display text.',
+      curl: `curl -X POST '${statsUrl}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-API-Key: your-api-key' \\
+  -d '{
+    "modules": {
+      "profile": {}
+    }
+  }'`,
+      js: `const response = await fetch('${statsUrl}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    modules: {
+      profile: {}
+    }
+  })
+});
+
+const data = await response.json();`,
+    }),
     buildExampleBlock({
       id: 'agents-basic',
       title: 'Basic request: competitive agents',
@@ -549,7 +601,7 @@ const data = await response.json();`,
       <h1>Valorant Stats API</h1>
       <p class="muted"><strong>Version:</strong> <span class="inline-code">${escapeHtml(version)}</span></p>
       <p class="hero-copy">
-        A reusable API for tracked Riot IDs that refreshes data through Apify, stores snapshots on disk, and serves clean cached responses to your app, site, or dashboard.
+        A reusable API for tracked Riot IDs that refreshes stats through Apify, enriches profile data through HenrikDev and Valorant API, stores snapshots on disk, and serves clean cached responses to your app, site, or dashboard.
       </p>
       <p class="hero-copy">
         This project is built for people who want stable stats responses, predictable hosting, and a simple setup without adding a database on day one.
@@ -580,6 +632,7 @@ const data = await response.json();`,
         <p>Built-in scheduler: <span class="good">${ENABLE_AUTO_REFRESH ? 'enabled' : 'disabled'}</span></p>
         <p>Tracker refresh command: <span class="inline-code">npm run refresh:snapshots</span></p>
         <p>Henrik profile refresh command: <span class="inline-code">npm run refresh:profiles</span></p>
+        <p>Profile refreshes are separate so you can update account/card/title data without rerunning the slower tracker.gg scrape.</p>
       </section>
     </div>
 
@@ -600,7 +653,7 @@ const data = await response.json();`,
   }
 }</code></pre>
       <div class="note">
-        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">profile</span> comes from Henrik-backed snapshot data, <span class="inline-code">rank</span> always comes from competitive data, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
+        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">profile</span> is not playlist-scoped, <span class="inline-code">rank</span> always comes from competitive data, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
       </div>
     </section>
 
@@ -618,7 +671,30 @@ const data = await response.json();`,
   "cachedAt": "2026-05-19T10:00:00.000Z",
   "nextRefreshAt": "2026-05-21T10:00:00.000Z",
   "status": "ok",
+  "sources": {
+    "henrik": {
+      "status": "ok",
+      "lastRefreshedAt": "2026-05-20T12:15:00.000Z"
+    }
+  },
   "data": {
+    "profile": {
+      "accountLevel": 514,
+      "region": "ap",
+      "card": {
+        "id": "67d7faa4-4b40-e16a-1c54-0f9b41919849",
+        "name": "VCT x SEN Card",
+        "displayIcon": "https://...",
+        "smallArt": "https://...",
+        "wideArt": "https://...",
+        "largeArt": "https://..."
+      },
+      "title": {
+        "id": "ae54c1ce-42b9-3dc1-5e91-6c9e9161b01a",
+        "name": "Gnarly Title",
+        "displayText": "Gnarly"
+      }
+    },
     "agents": [
       {
         "agent": "Omen",
