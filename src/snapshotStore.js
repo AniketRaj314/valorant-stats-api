@@ -50,4 +50,10 @@ function writeSnapshot(username, snapshot) {
   return snapshot;
 }
 
-module.exports = { readSnapshot, writeSnapshot, snapshotPath };
+function mergeSnapshotData(username, mergeFn) {
+  const previous = readSnapshot(username) ?? { username, status: 'ok', data: {} };
+  const next = mergeFn(previous);
+  return writeSnapshot(username, next);
+}
+
+module.exports = { readSnapshot, writeSnapshot, mergeSnapshotData, snapshotPath };

@@ -88,7 +88,7 @@ Body shape:
 Rules:
 - playlist must be competitive or unrated
 - modules is required and must be an object
-- valid modules are rank, agents, maps, totalPlaytime
+- valid modules are profile, rank, agents, maps, totalPlaytime
 - rank always comes from the competitive snapshot
 - totalPlaytime always comes from the shared snapshot
 - limit must be a positive integer
@@ -103,6 +103,7 @@ Rules:
   "data": {
     "agents": [],
     "maps": [],
+    "profile": {},
     "rank": {},
     "totalPlaytime": {}
   }
@@ -111,7 +112,8 @@ Rules:
 ## Refresh model
 - default refresh interval: ${REFRESH_INTERVAL_HOURS} hours
 - built-in scheduler enabled: ${ENABLE_AUTO_REFRESH ? 'yes' : 'no'}
-- manual refresh command: npm run refresh:snapshots
+- tracker refresh command: npm run refresh:snapshots
+- Henrik profile refresh command: npm run refresh:profiles
 
 ## Player visibility requirement
 Tracked players need a public tracker.gg profile, or their stats cannot be scraped.
@@ -187,13 +189,14 @@ const data = await response.json();`,
     buildExampleBlock({
       id: 'multiple-modules',
       title: 'Multiple modules in one request',
-      payloadNote: 'You can request rank, agents, maps, and shared total playtime together.',
+      payloadNote: 'You can request profile, rank, agents, maps, and shared total playtime together.',
       curl: `curl -X POST '${statsUrl}' \\
   -H 'Content-Type: application/json' \\
   -H 'X-API-Key: your-api-key' \\
   -d '{
     "playlist": "competitive",
     "modules": {
+      "profile": {},
       "rank": {},
       "agents": {},
       "maps": {},
@@ -209,6 +212,7 @@ const data = await response.json();`,
   body: JSON.stringify({
     playlist: 'competitive',
     modules: {
+      profile: {},
       rank: {},
       agents: {},
       maps: {},
@@ -574,7 +578,8 @@ const data = await response.json();`,
         <h3>Refresh model</h3>
         <p>Snapshots refresh every <span class="inline-code">${REFRESH_INTERVAL_HOURS}h</span> by default.</p>
         <p>Built-in scheduler: <span class="good">${ENABLE_AUTO_REFRESH ? 'enabled' : 'disabled'}</span></p>
-        <p>Manual refresh command: <span class="inline-code">npm run refresh:snapshots</span></p>
+        <p>Tracker refresh command: <span class="inline-code">npm run refresh:snapshots</span></p>
+        <p>Henrik profile refresh command: <span class="inline-code">npm run refresh:profiles</span></p>
       </section>
     </div>
 
@@ -587,6 +592,7 @@ const data = await response.json();`,
       <pre class="code code--active"><code>{
   "playlist": "competitive",
   "modules": {
+    "profile": {},
     "rank": {},
     "agents": {},
     "maps": { "playlist": "unrated", "limit": 3 },
@@ -594,7 +600,7 @@ const data = await response.json();`,
   }
 }</code></pre>
       <div class="note">
-        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">rank</span> always comes from competitive data, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
+        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">profile</span> comes from Henrik-backed snapshot data, <span class="inline-code">rank</span> always comes from competitive data, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
       </div>
     </section>
 

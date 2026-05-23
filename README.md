@@ -78,6 +78,12 @@ Before you run this project, you need:
    npm run refresh:snapshots
    ```
 
+   Optional Henrik-backed profile refresh:
+
+   ```bash
+   npm run refresh:profiles
+   ```
+
 If `ENABLE_AUTO_REFRESH=true`, the server can also refresh missing or due snapshots automatically in-process.
 
 ## Environment Variables
@@ -85,6 +91,7 @@ If `ENABLE_AUTO_REFRESH=true`, the server can also refresh missing or due snapsh
 | Variable | Required | Description |
 |---|---|---|
 | `APIFY_TOKEN` | Yes | Apify token used for tracker.gg scraping runs |
+| `HENRIK_API_KEY` | Yes for `refresh:profiles` | HenrikDev API key used for account profile data |
 | `API_KEYS` | Yes | Comma-separated API keys accepted by `/valorant/stats/*` routes |
 | `TRACKED_USERNAMES` | Yes | Comma-separated Riot IDs to support in this API |
 | `PORT` | No | Port the server listens on. Defaults to `3000` |
@@ -100,6 +107,7 @@ Each tracked Riot ID gets one snapshot file on disk. A full refresh currently co
 - competitive rank (current and peak)
 - competitive agents
 - competitive maps
+- profile account level, region, player card, and player title when `npm run refresh:profiles` is run
 - total playtime across modes
 - unrated agents
 - unrated maps

@@ -32,6 +32,12 @@ const SNAPSHOT = {
     shared: {
       totalPlaytime: { total: '1,243 hours' },
     },
+    profile: {
+      accountLevel: 514,
+      region: 'ap',
+      card: { id: 'card-id', name: 'VCT x SEN Card' },
+      title: { id: 'title-id', name: 'Gnarly Title', displayText: 'Gnarly' },
+    },
   },
 };
 
@@ -88,7 +94,7 @@ describe('app route wiring', () => {
     const res = await request(app)
       .post(`/valorant/stats/${ENCODED_USERNAME}`)
       .set('X-API-Key', VALID_API_KEY)
-      .send({ modules: { agents: {}, totalPlaytime: {} } });
+      .send({ modules: { agents: {}, totalPlaytime: {}, profile: {} } });
 
     expect(res.status).toBe(200);
     expect(res.body.username).toBe(USERNAME);
@@ -98,6 +104,7 @@ describe('app route wiring', () => {
     );
     expect(res.body.data.agents).toEqual(SNAPSHOT.data.competitive.agents);
     expect(res.body.data.totalPlaytime).toEqual(SNAPSHOT.data.shared.totalPlaytime);
+    expect(res.body.data.profile).toEqual(SNAPSHOT.data.profile);
   });
 
   test('legacy public routes now 404', async () => {

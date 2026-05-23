@@ -4,6 +4,8 @@ const { createApp } = require('./app');
 const { initAgentData } = require('./agentData');
 const { initRankIcons } = require('./rankIcons');
 const { initMapData } = require('./mapData');
+const { initPlayerCardData } = require('./playerCardData');
+const { initPlayerTitleData } = require('./playerTitleData');
 const { startAutoRefreshScheduler } = require('./autoRefresh');
 const { log } = require('./logger');
 
@@ -29,8 +31,8 @@ const app = createApp({ startTime: Date.now(), validKeys: [...VALID_KEYS] });
   } else {
     log('CONFIG', `Tracked usernames: ${TRACKED_USERNAMES.join(', ')}`);
   }
-  log('INIT', 'Loading static data (agents, rank icons, maps)...');
-  await Promise.all([initAgentData(), initRankIcons(), initMapData()]);
+  log('INIT', 'Loading static data (agents, rank icons, maps, player cards, player titles)...');
+  await Promise.all([initAgentData(), initRankIcons(), initMapData(), initPlayerCardData(), initPlayerTitleData()]);
   log('INIT', 'Static data loaded');
   if (ENABLE_AUTO_REFRESH) {
     log('DECISION', 'Auto refresh is enabled; starting in-process scheduler');

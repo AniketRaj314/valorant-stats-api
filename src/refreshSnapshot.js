@@ -17,6 +17,7 @@ function delay(ms) {
 
 async function refreshUserSnapshot(username) {
   log('REFRESH', `Starting snapshot refresh for ${username}`);
+  const previous = readSnapshot(username);
   const staggerMs = parseInt(process.env.REFRESH_STAGGER_MS || '5000', 10);
   log('CONFIG', `${username} | refresh steps=${REFRESH_STEPS.length} | staggerMs=${staggerMs}`);
   const results = {};
@@ -31,11 +32,20 @@ async function refreshUserSnapshot(username) {
     log('REFRESH', `${username} | finished ${step.modules.join(',')} (${step.playlist})`);
   }
 
+  const refreshedAt = new Date().toISOString();
   const snapshot = {
     username,
     status: 'ok',
-    lastRefreshedAt: new Date().toISOString(),
+    lastRefreshedAt: refreshedAt,
+    sources: {
+      ...(previous?.sources ?? {}),
+      tracker: {
+        status: 'ok',
+        lastRefreshedAt: refreshedAt,
+      },
+    },
     data: {
+      ...(previous?.data?.profile ? { profile: previous.data.profile } : {}),
       competitive: {
         rank: results.competitiveRank?.rank ?? null,
         agents: results.competitiveAgents?.agents ?? [],

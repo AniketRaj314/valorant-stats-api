@@ -35,6 +35,12 @@ const SNAPSHOT = {
     shared: {
       totalPlaytime: { total: '1,243 hours' },
     },
+    profile: {
+      accountLevel: 514,
+      region: 'ap',
+      card: { id: 'card-id', name: 'VCT x SEN Card' },
+      title: { id: 'title-id', name: 'Gnarly Title', displayText: 'Gnarly' },
+    },
   },
 };
 
@@ -133,6 +139,14 @@ describe('snapshot reads', () => {
     });
     expect(res.status).toBe(200);
     expect(res.body.data.totalPlaytime).toEqual(SNAPSHOT.data.shared.totalPlaytime);
+  });
+
+  test('profile comes from profile snapshot data', async () => {
+    const res = await request(app).post(URL).send({
+      modules: { profile: {} },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data.profile).toEqual(SNAPSHOT.data.profile);
   });
 
   test('multiple modules are returned together', async () => {

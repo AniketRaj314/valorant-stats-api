@@ -1,6 +1,6 @@
 {
   "name": "valorant-stats-api",
-  "version": "2.0.6",
+  "version": "2.1.0",
   "description": "Valorant stats API using Apify Playwright scraper",
   "keywords": [
     "valorant",
@@ -16,6 +16,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "refresh:snapshots": "node src/refreshTrackedUsers.js",
+    "refresh:profiles": "node src/refreshHenrikProfiles.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"

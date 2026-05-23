@@ -40,6 +40,30 @@ describe('refreshUserSnapshot', () => {
       status: 'ok',
     }));
   });
+
+  test('preserves existing Henrik profile data when Tracker snapshot refresh runs', async () => {
+    const profile = {
+      accountLevel: 514,
+      region: 'ap',
+      card: { id: 'card-id', name: 'VCT x SEN Card' },
+      title: { id: 'title-id', name: 'Gnarly Title', displayText: 'Gnarly' },
+    };
+    readSnapshot.mockReturnValue({
+      username: USERNAME,
+      status: 'ok',
+      lastRefreshedAt: '2026-05-18T10:00:00.000Z',
+      sources: { henrik: { status: 'ok', lastRefreshedAt: '2026-05-18T11:00:00.000Z' } },
+      data: { profile },
+    });
+
+    const snapshot = await refreshUserSnapshot(USERNAME);
+
+    expect(snapshot.data.profile).toEqual(profile);
+    expect(snapshot.sources).toEqual(expect.objectContaining({
+      henrik: { status: 'ok', lastRefreshedAt: '2026-05-18T11:00:00.000Z' },
+      tracker: expect.objectContaining({ status: 'ok' }),
+    }));
+  });
 });
 
 describe('refreshTrackedUsers', () => {

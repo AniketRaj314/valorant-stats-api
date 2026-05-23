@@ -7,7 +7,7 @@ const { log } = require('../logger');
 const router = express.Router();
 
 const VALID_PLAYLISTS = new Set(['competitive', 'unrated']);
-const VALID_MODULES = new Set(Object.keys(MODULE_DEFINITIONS));
+const VALID_MODULES = new Set([...Object.keys(MODULE_DEFINITIONS), 'profile']);
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -24,12 +24,14 @@ function applyModuleLimits(data, modulesBody) {
 }
 
 function resolvedPlaylistFor(mod, modulesBody, topPlaylist) {
+  if (mod === 'profile') return 'profile';
   if (mod === 'rank') return 'competitive';
   if (mod === 'totalPlaytime') return 'shared';
   return modulesBody[mod].playlist ?? topPlaylist;
 }
 
 function readModuleFromSnapshot(snapshot, mod, playlist) {
+  if (mod === 'profile') return snapshot.data.profile;
   if (mod === 'rank') return snapshot.data.competitive.rank;
   if (mod === 'totalPlaytime') return snapshot.data.shared.totalPlaytime;
   return snapshot.data[playlist]?.[mod];
@@ -131,6 +133,7 @@ router.post('/stats/:username', async (req, res) => {
     cachedAt: snapshot.lastRefreshedAt,
     nextRefreshAt,
     status: snapshot.status,
+    ...(snapshot.sources ? { sources: snapshot.sources } : {}),
     data: applyModuleLimits(data, modulesBody),
   });
 });

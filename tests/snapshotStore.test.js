@@ -52,4 +52,29 @@ describe('snapshotStore', () => {
 
     expect(readSnapshot(username)).toEqual(snapshot);
   });
+
+  test('mergeSnapshotData updates an existing snapshot without replacing unrelated data', () => {
+    const { mergeSnapshotData, writeSnapshot } = require('../src/snapshotStore');
+    const username = 'Spider31415#6921';
+    const original = {
+      username,
+      status: 'ok',
+      lastRefreshedAt: '2026-05-21T00:00:00.000Z',
+      data: {
+        competitive: { agents: [{ agent: 'Jett' }] },
+      },
+    };
+    writeSnapshot(username, original);
+
+    const merged = mergeSnapshotData(username, (previous) => ({
+      ...previous,
+      data: {
+        ...previous.data,
+        profile: { accountLevel: 514 },
+      },
+    }));
+
+    expect(merged.data.competitive).toEqual(original.data.competitive);
+    expect(merged.data.profile).toEqual({ accountLevel: 514 });
+  });
 });

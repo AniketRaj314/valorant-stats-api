@@ -16,13 +16,14 @@ A module is a requestable piece of cached Valorant data exposed by:
 Today, the supported modules are:
 
 - `rank`
+- `profile`
 - `agents`
 - `maps`
 - `totalPlaytime`
 
 Each module has three layers:
 
-1. how it is scraped from tracker.gg
+1. how it is refreshed from tracker.gg or HenrikDev
 2. where it is stored inside the snapshot JSON
 3. how `src/routes/valorant.js` resolves it for API responses
 
@@ -34,6 +35,12 @@ Each module has three layers:
   "status": "ok",
   "lastRefreshedAt": "2026-05-21T07:41:27.572Z",
   "data": {
+    "profile": {
+      "accountLevel": 514,
+      "region": "ap",
+      "card": {},
+      "title": {}
+    },
     "competitive": {
       "rank": {},
       "agents": [],
@@ -63,14 +70,23 @@ Each module has three layers:
 
 The step list currently lives in `REFRESH_STEPS` inside `src/refreshSnapshot.js`.
 
+`src/refreshHenrikProfiles.js` refreshes Henrik-backed profile data separately with:
+
+```bash
+npm run refresh:profiles
+```
+
+That command merges `data.profile` into the same snapshot file without rerunning the tracker.gg/Apify refresh.
+
 ## Module source map
 
-| Module | tracker.gg page | Playlist used | Stored under | Route resolution |
+| Module | Source | Playlist used | Stored under | Route resolution |
 | --- | --- | --- | --- | --- |
-| `rank` | `/overview` | `competitive` only | `data.competitive.rank` | always read from `competitive` |
-| `agents` | `/agents` | `competitive` or `unrated` | `data.competitive.agents` or `data.unrated.agents` | read from requested playlist |
-| `maps` | `/maps` | `competitive` or `unrated` | `data.competitive.maps` or `data.unrated.maps` | read from requested playlist |
-| `totalPlaytime` | `/performance` | fetched during competitive refresh step | `data.shared.totalPlaytime` | always read from `shared` |
+| `profile` | HenrikDev `/valorant/v2/account`, enriched with Valorant API cards/titles | not playlist-scoped | `data.profile` | always read from `profile` |
+| `rank` | tracker.gg `/overview` | `competitive` only | `data.competitive.rank` | always read from `competitive` |
+| `agents` | tracker.gg `/agents` | `competitive` or `unrated` | `data.competitive.agents` or `data.unrated.agents` | read from requested playlist |
+| `maps` | tracker.gg `/maps` | `competitive` or `unrated` | `data.competitive.maps` or `data.unrated.maps` | read from requested playlist |
+| `totalPlaytime` | tracker.gg `/performance` | fetched during competitive refresh step | `data.shared.totalPlaytime` | always read from `shared` |
 
 ## Scraper behavior
 
@@ -101,6 +117,7 @@ The request handler logic lives in `src/routes/valorant.js`.
 Important rules:
 
 - top-level `playlist` defaults to `competitive`
+- `profile` always resolves from `data.profile`
 - `rank` always resolves from `data.competitive.rank`
 - `totalPlaytime` always resolves from `data.shared.totalPlaytime`
 - `agents` and `maps` resolve from either `competitive` or `unrated`
@@ -110,11 +127,36 @@ Important rules:
 Examples:
 
 - `{"modules":{"rank":{}}}` reads from `data.competitive.rank`
+- `{"modules":{"profile":{}}}` reads from `data.profile`
 - `{"playlist":"unrated","modules":{"agents":{}}}` reads from `data.unrated.agents`
 - `{"playlist":"competitive","modules":{"agents":{"playlist":"unrated"}}}` reads from `data.unrated.agents`
 - `{"modules":{"totalPlaytime":{}}}` reads from `data.shared.totalPlaytime`
 
 ## Module shapes
+
+### `profile`
+
+Stored once under `data.profile`.
+
+```json
+{
+  "accountLevel": 514,
+  "region": "ap",
+  "card": {
+    "id": "67d7faa4-4b40-e16a-1c54-0f9b41919849",
+    "name": "VCT x SEN Card",
+    "displayIcon": "https://media.valorant-api.com/playercards/.../displayicon.png",
+    "smallArt": "https://media.valorant-api.com/playercards/.../smallart.png",
+    "wideArt": "https://media.valorant-api.com/playercards/.../wideart.png",
+    "largeArt": "https://media.valorant-api.com/playercards/.../largeart.png"
+  },
+  "title": {
+    "id": "ae54c1ce-42b9-3dc1-5e91-6c9e9161b01a",
+    "name": "Gnarly Title",
+    "displayText": "Gnarly"
+  }
+}
+```
 
 ### `rank`
 
