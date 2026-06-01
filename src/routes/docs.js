@@ -92,7 +92,7 @@ Rules:
 - modules is required and must be an object
 - valid modules are profile, rank, agents, maps, totalPlaytime
 - profile is not playlist-scoped
-- rank always comes from the competitive snapshot
+- rank is Henrik-backed and is returned from the competitive response branch for compatibility
 - totalPlaytime always comes from the shared snapshot
 - limit must be a positive integer
 
@@ -138,7 +138,7 @@ Rules:
 - default refresh interval: ${REFRESH_INTERVAL_HOURS} hours
 - built-in scheduler enabled: ${ENABLE_AUTO_REFRESH ? 'yes' : 'no'}
 - tracker refresh command: npm run refresh:snapshots
-- Henrik profile refresh command: npm run refresh:profiles
+- Henrik profile/rank refresh command: npm run refresh:profiles
 
 ## Player visibility requirement
 Tracked players need a public tracker.gg profile, or their stats cannot be scraped.
@@ -631,8 +631,8 @@ const data = await response.json();`,
         <p>Snapshots refresh every <span class="inline-code">${REFRESH_INTERVAL_HOURS}h</span> by default.</p>
         <p>Built-in scheduler: <span class="good">${ENABLE_AUTO_REFRESH ? 'enabled' : 'disabled'}</span></p>
         <p>Tracker refresh command: <span class="inline-code">npm run refresh:snapshots</span></p>
-        <p>Henrik profile refresh command: <span class="inline-code">npm run refresh:profiles</span></p>
-        <p>Profile refreshes are separate so you can update account/card/title data without rerunning the slower tracker.gg scrape.</p>
+        <p>Henrik profile/rank refresh command: <span class="inline-code">npm run refresh:profiles</span></p>
+        <p>Henrik refreshes are separate so you can update account/card/title/rank data without rerunning the slower tracker.gg scrape.</p>
       </section>
     </div>
 
@@ -653,7 +653,7 @@ const data = await response.json();`,
   }
 }</code></pre>
       <div class="note">
-        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">profile</span> is not playlist-scoped, <span class="inline-code">rank</span> always comes from competitive data, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
+        <strong>Rules:</strong> <span class="muted">top-level <span class="inline-code">playlist</span> must be <span class="inline-code">competitive</span> or <span class="inline-code">unrated</span>. <span class="inline-code">modules</span> is required. Each module config must be an object. <span class="inline-code">profile</span> is not playlist-scoped, <span class="inline-code">rank</span> is Henrik-backed and returned from the competitive branch for compatibility, and <span class="inline-code">totalPlaytime</span> always comes from shared data.</span>
       </div>
     </section>
 

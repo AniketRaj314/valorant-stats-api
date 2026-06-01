@@ -1,15 +1,17 @@
 require('dotenv').config();
 
 const { TRACKED_USERNAMES } = require('./config');
-const { fetchHenrikProfile } = require('./henrikProfile');
+const { fetchHenrikProfile, fetchHenrikRank } = require('./henrikProfile');
 const { initPlayerCardData } = require('./playerCardData');
 const { initPlayerTitleData } = require('./playerTitleData');
+const { initRankIcons } = require('./rankIcons');
 const { mergeSnapshotData } = require('./snapshotStore');
 const { log } = require('./logger');
 
 async function refreshUserHenrikProfile(username) {
   log('PROFILE', `Starting Henrik profile refresh for ${username}`);
   const profile = await fetchHenrikProfile(username);
+  const rank = await fetchHenrikRank(username, profile.region);
   const refreshedAt = new Date().toISOString();
 
   const snapshot = mergeSnapshotData(username, (previous) => ({
@@ -25,12 +27,29 @@ async function refreshUserHenrikProfile(username) {
     },
     data: {
       ...(previous.data ?? {}),
+      competitive: {
+        ...(previous.data?.competitive ?? {}),
+        rank: mergeRankForCompatibility(rank, previous.data?.competitive?.rank),
+      },
       profile,
     },
   }));
 
-  log('PROFILE', `Henrik profile refresh complete for ${username}`);
+  log('PROFILE', `Henrik profile/rank refresh complete for ${username}`);
   return snapshot;
+}
+
+function mergeRankForCompatibility(nextRank, previousRank) {
+  if (previousRank?.peak?.rank && previousRank.peak.rank === nextRank.peak?.rank && previousRank.peak.act) {
+    return {
+      ...nextRank,
+      peak: {
+        ...nextRank.peak,
+        act: previousRank.peak.act,
+      },
+    };
+  }
+  return nextRank;
 }
 
 async function refreshHenrikProfiles(usernames, { continueOnError = true } = {}) {
@@ -58,8 +77,8 @@ async function main() {
     return;
   }
 
-  log('INIT', 'Loading static data for Henrik profile refresh (player cards, player titles)...');
-  await Promise.all([initPlayerCardData(), initPlayerTitleData()]);
+  log('INIT', 'Loading static data for Henrik refresh (rank icons, player cards, player titles)...');
+  await Promise.all([initRankIcons(), initPlayerCardData(), initPlayerTitleData()]);
   log('INIT', 'Static profile data loaded');
   await refreshHenrikProfiles(TRACKED_USERNAMES);
 }
@@ -71,4 +90,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { refreshHenrikProfiles, refreshUserHenrikProfile };
+module.exports = { mergeRankForCompatibility, refreshHenrikProfiles, refreshUserHenrikProfile };

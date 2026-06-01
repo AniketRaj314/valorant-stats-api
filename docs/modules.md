@@ -73,14 +73,13 @@ There are two refresh paths because the underlying sources have different cost a
 
 ### Tracker Stats Refresh
 
-`src/refreshSnapshot.js` refreshes one user in six ordered steps:
+`src/refreshSnapshot.js` refreshes one user in five ordered steps:
 
-1. competitive `rank`
-2. competitive `agents`
-3. competitive `maps`
-4. shared `totalPlaytime`
-5. unrated `agents`
-6. unrated `maps`
+1. competitive `agents`
+2. competitive `maps`
+3. shared `totalPlaytime`
+4. unrated `agents`
+5. unrated `maps`
 
 The step list currently lives in `REFRESH_STEPS` inside `src/refreshSnapshot.js`.
 
@@ -90,28 +89,30 @@ This command is comparatively slow because it calls the Apify/Playwright scraper
 npm run refresh:snapshots
 ```
 
-### Henrik Profile Refresh
+### Henrik Profile And Rank Refresh
 
-`src/refreshHenrikProfiles.js` refreshes Henrik-backed profile data separately with:
+`src/refreshHenrikProfiles.js` refreshes Henrik-backed profile and rank data separately with:
 
 ```bash
 npm run refresh:profiles
 ```
 
-That command merges `data.profile` into the same snapshot file without rerunning the tracker.gg/Apify refresh.
+That command merges `data.profile` and `data.competitive.rank` into the same snapshot file without rerunning the tracker.gg/Apify refresh.
 
-The profile refresh uses:
+The Henrik refresh uses:
 
 - HenrikDev `/valorant/v2/account/{name}/{tag}` for account level, region, card ID, and title ID
+- HenrikDev `/valorant/v3/mmr/{region}/{platform}/{name}/{tag}` for current and peak rank
 - Valorant API `/v1/playercards` to resolve card images
 - Valorant API `/v1/playertitles` to resolve title display text
+- Valorant API `/v1/competitivetiers` to resolve rank icons
 
 ## Module source map
 
 | Module | Source | Playlist used | Stored under | Route resolution |
 | --- | --- | --- | --- | --- |
 | `profile` | HenrikDev `/valorant/v2/account`, enriched with Valorant API cards/titles | not playlist-scoped | `data.profile` | always read from `profile` |
-| `rank` | tracker.gg `/overview` | `competitive` only | `data.competitive.rank` | always read from `competitive` |
+| `rank` | HenrikDev `/valorant/v3/mmr`, enriched with Valorant API rank icons | `competitive` response branch | `data.competitive.rank` | always read from `competitive` |
 | `agents` | tracker.gg `/agents` | `competitive` or `unrated` | `data.competitive.agents` or `data.unrated.agents` | read from requested playlist |
 | `maps` | tracker.gg `/maps` | `competitive` or `unrated` | `data.competitive.maps` or `data.unrated.maps` | read from requested playlist |
 | `totalPlaytime` | tracker.gg `/performance` | fetched during competitive refresh step | `data.shared.totalPlaytime` | always read from `shared` |
@@ -133,7 +134,6 @@ Current readiness rules:
 
 | Module | waitFor | Notes |
 | --- | --- | --- |
-| `rank` | `.area-rating .rating-entry__rank-info .value` | visible wait is sufficient |
 | `agents` | `.st-content__item` | uses `attached` plus a `readyCheck` for non-empty agent names |
 | `maps` | `.st-content__item` | waits for map rows before extraction |
 | `totalPlaytime` | `.playtime-summary .value` | single-value summary extraction |
@@ -188,7 +188,7 @@ Stored once under `data.profile`.
 
 ### `rank`
 
-Always sourced from the competitive overview page.
+Stored under `data.competitive.rank` for API compatibility. The values are refreshed from HenrikDev MMR data and enriched with Valorant API rank icons.
 
 ```json
 {
@@ -271,7 +271,7 @@ Stored once under `data.shared.totalPlaytime`.
 
 ## Adding a new module
 
-If you want to expose another piece of tracker.gg data:
+If you want to expose another piece of cached Valorant data:
 
 1. Add or extend the module entry in `src/scraper.js`
 2. Decide which snapshot branch should own the data:
@@ -288,6 +288,6 @@ If you want to expose another piece of tracker.gg data:
 ## Contributor notes
 
 - `profile`, `rank`, and `totalPlaytime` are special-case modules and should not be treated like playlist-scoped arrays
-- Henrik-backed modules should merge into existing snapshots rather than replace Tracker-backed branches
+- Henrik-backed modules should merge into existing snapshots rather than replace unrelated Tracker-backed branches
 - `agents` is the most timing-sensitive table on tracker.gg and currently uses the loosest safe readiness strategy
 - `snapshotStore.js` now writes collision-safe base64url filenames, while still reading legacy snapshot filenames for compatibility

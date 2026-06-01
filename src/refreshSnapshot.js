@@ -3,7 +3,6 @@ const { writeSnapshot, readSnapshot } = require('./snapshotStore');
 const { formatDuration, log } = require('./logger');
 
 const REFRESH_STEPS = [
-  { key: 'competitiveRank', playlist: 'competitive', modules: ['rank'] },
   { key: 'competitiveAgents', playlist: 'competitive', modules: ['agents'] },
   { key: 'competitiveMaps', playlist: 'competitive', modules: ['maps'] },
   { key: 'sharedPlaytime', playlist: 'competitive', modules: ['totalPlaytime'] },
@@ -47,7 +46,7 @@ async function refreshUserSnapshot(username) {
     data: {
       ...(previous?.data?.profile ? { profile: previous.data.profile } : {}),
       competitive: {
-        rank: results.competitiveRank?.rank ?? null,
+        rank: previous?.data?.competitive?.rank ?? null,
         agents: results.competitiveAgents?.agents ?? [],
         maps: results.competitiveMaps?.maps ?? [],
       },

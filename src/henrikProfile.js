@@ -1,5 +1,6 @@
 const { PLAYER_CARD_DATA } = require('./playerCardData');
 const { PLAYER_TITLE_DATA } = require('./playerTitleData');
+const { RANK_ICONS } = require('./rankIcons');
 const { log } = require('./logger');
 
 function splitRiotId(username) {
@@ -43,6 +44,28 @@ function buildProfile(account) {
   };
 }
 
+function resolveRankIcon(rank) {
+  if (!rank) return null;
+  return RANK_ICONS[rank.toLowerCase()] ?? null;
+}
+
+function buildRank(mmr) {
+  const currentRank = mmr.current?.tier?.name ?? null;
+  const peakRank = mmr.peak?.tier?.name ?? null;
+
+  return {
+    current: {
+      rank: currentRank,
+      icon: resolveRankIcon(currentRank),
+    },
+    peak: {
+      rank: peakRank,
+      act: mmr.peak?.season?.short ?? null,
+      icon: resolveRankIcon(peakRank),
+    },
+  };
+}
+
 async function fetchHenrikProfile(username, { apiKey = process.env.HENRIK_API_KEY } = {}) {
   if (!apiKey) {
     throw new Error('HENRIK_API_KEY is not set');
@@ -64,8 +87,34 @@ async function fetchHenrikProfile(username, { apiKey = process.env.HENRIK_API_KE
   return buildProfile(body.data);
 }
 
+async function fetchHenrikRank(username, region, { apiKey = process.env.HENRIK_API_KEY, platform = 'pc' } = {}) {
+  if (!apiKey) {
+    throw new Error('HENRIK_API_KEY is not set');
+  }
+  if (!region) {
+    throw new Error(`Cannot fetch Henrik rank for ${username} without a region`);
+  }
+
+  const { name, tag } = splitRiotId(username);
+  const url = `https://api.henrikdev.xyz/valorant/v3/mmr/${encodeURIComponent(region)}/${encodeURIComponent(platform)}/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`;
+  log('HENRIK', `Calling Henrik MMR v3 for ${username} (${region}/${platform})`);
+  const startedAt = Date.now();
+  const res = await fetch(url, { headers: { Authorization: apiKey } });
+  const body = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const message = body?.errors?.[0]?.message || body?.error || `Henrik returned HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
+  log('HENRIK', `MMR v3 done for ${username} in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
+  return buildRank(body.data);
+}
+
 module.exports = {
+  buildRank,
   buildProfile,
+  fetchHenrikRank,
   fetchHenrikProfile,
   splitRiotId,
 };

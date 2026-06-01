@@ -16,7 +16,7 @@ For request examples and API usage, open the built-in docs page after the server
 - Snapshot-backed API for tracked Riot IDs
 - Competitive and unrated agent/map stats
 - Player profile data: account level, region, player card, and title
-- Competitive rank data
+- Current and peak rank data
 - Total playtime across all modes
 - API key protection by default
 - Optional built-in auto-refresh scheduler
@@ -75,13 +75,13 @@ Before you run this project, you need:
    npm start
    ```
 
-5. Refresh snapshots
+5. Refresh tracker.gg snapshots
 
    ```bash
    npm run refresh:snapshots
    ```
 
-6. Refresh profile data
+6. Refresh Henrik-backed profile and rank data
 
    ```bash
    npm run refresh:profiles
@@ -105,21 +105,22 @@ If `ENABLE_AUTO_REFRESH=true`, the server can also refresh missing or due snapsh
 
 ## How Refreshing Works
 
-Each tracked Riot ID gets one snapshot file on disk. A full refresh currently collects:
+Each tracked Riot ID gets one snapshot file on disk. The tracker.gg refresh collects:
 
-- competitive rank (current and peak)
 - competitive agents
 - competitive maps
 - total playtime across modes
 - unrated agents
 - unrated maps
 
-Profile data is refreshed separately with `npm run refresh:profiles`. It collects:
+Henrik-backed data is refreshed separately with `npm run refresh:profiles`. It collects:
 
 - account level
 - region
 - player card assets
 - player title display text
+- current rank
+- peak rank
 
 The API only reads those snapshots. It does not scrape tracker.gg during request handling.
 
@@ -169,7 +170,7 @@ Recommended setup:
 5. Decide whether to use:
    - built-in refresh with `ENABLE_AUTO_REFRESH=true`, or
    - an external Railway cron service that runs `npm run refresh:snapshots`
-6. If you use profile data, run `npm run refresh:profiles` as a separate lightweight job.
+6. Run `npm run refresh:profiles` as a separate lightweight job for profile and rank data.
 
 For a simple single-service deployment, the built-in scheduler is the easiest path.
 
