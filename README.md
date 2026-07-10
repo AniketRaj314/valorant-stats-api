@@ -51,6 +51,7 @@ Before you run this project, you need:
 
    ```env
    APIFY_TOKEN=your_apify_api_token
+   APIFY_MEMORY_MB=2048
    HENRIK_API_KEY=your_henrikdev_api_key
    PORT=3000
    API_KEYS=local-dev-key
@@ -94,6 +95,7 @@ If `ENABLE_AUTO_REFRESH=true`, the server can also refresh missing or due snapsh
 | Variable | Required | Description |
 |---|---|---|
 | `APIFY_TOKEN` | Yes | Apify token used for tracker.gg scraping runs |
+| `APIFY_MEMORY_MB` | No | Memory assigned to each Apify actor run. Defaults to `2048` |
 | `HENRIK_API_KEY` | Yes for `refresh:profiles` | HenrikDev API key used for account profile data |
 | `API_KEYS` | Yes | Comma-separated API keys accepted by `/valorant/stats/*` routes |
 | `TRACKED_USERNAMES` | Yes | Comma-separated Riot IDs to support in this API |

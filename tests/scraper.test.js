@@ -24,6 +24,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.APIFY_TOKEN;
+  delete process.env.APIFY_MEMORY_MB;
   fetchSpy.mockRestore();
 });
 
@@ -91,6 +92,30 @@ describe('module grouping', () => {
     const result = await scrapeStats('User#1', 'competitive', ['rank', 'agents']);
     expect(result).toHaveProperty('rank');
     expect(result).toHaveProperty('agents');
+  });
+});
+
+// ─── Apify run configuration ────────────────────────────────────────────────
+
+describe('Apify run configuration', () => {
+  test('defaults actor memory to 2048 MB', async () => {
+    fetchSpy.mockResolvedValue(makeOkResponse([{ agents: [] }]));
+    await scrapeStats('User#1', 'competitive', ['agents']);
+    expect(fetchSpy.mock.calls[0][0]).toContain('memory=2048');
+  });
+
+  test('uses APIFY_MEMORY_MB when provided', async () => {
+    process.env.APIFY_MEMORY_MB = '4096';
+    fetchSpy.mockResolvedValue(makeOkResponse([{ agents: [] }]));
+    await scrapeStats('User#1', 'competitive', ['agents']);
+    expect(fetchSpy.mock.calls[0][0]).toContain('memory=4096');
+  });
+
+  test('falls back to 2048 MB when APIFY_MEMORY_MB is invalid', async () => {
+    process.env.APIFY_MEMORY_MB = 'nope';
+    fetchSpy.mockResolvedValue(makeOkResponse([{ agents: [] }]));
+    await scrapeStats('User#1', 'competitive', ['agents']);
+    expect(fetchSpy.mock.calls[0][0]).toContain('memory=2048');
   });
 });
 

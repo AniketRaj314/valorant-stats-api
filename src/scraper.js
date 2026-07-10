@@ -6,6 +6,12 @@ const { log } = require('./logger');
 const APIFY_ACTOR_URL =
   'https://api.apify.com/v2/acts/apify~playwright-scraper/run-sync-get-dataset-items';
 const APIFY_TIMEOUT_MS = parseInt(process.env.APIFY_TIMEOUT_MS || '420000', 10);
+const DEFAULT_APIFY_MEMORY_MB = 2048;
+
+function getApifyMemoryMb() {
+  const parsed = parseInt(process.env.APIFY_MEMORY_MB || `${DEFAULT_APIFY_MEMORY_MB}`, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_APIFY_MEMORY_MB;
+}
 
 // Each module defines:
 //   waitFor      - CSS selector passed to page.waitForSelector() (runs in Node/Playwright context)
@@ -215,7 +221,8 @@ async function scrapeUrl(username, page, playlist, modules) {
     debugLog: false,
   };
 
-  const url = `${APIFY_ACTOR_URL}?token=${token}&memory=1024`;
+  const memoryMb = getApifyMemoryMb();
+  const url = `${APIFY_ACTOR_URL}?token=${token}&memory=${memoryMb}`;
 
   let response;
   try {
